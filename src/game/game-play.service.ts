@@ -54,49 +54,111 @@ export class GamePlayService {
             if (gameRoom.piece[user.clientId]) {
                 return;
             }
-
-            const newBoard = this.copyBoard(gameRoom.board[user.clientId]);
-            const piece = new Piece();
-            gameRoom.piece[user.clientId] = piece;
-
-            console.log(piece.shape)
-            for (let i=piece.y; (i-piece.y < (piece.shape.length) && i<this.BOARD_COLS); i++) {
-                for (let j=piece.x; (j-piece.x < (piece.shape[0].length) && j<this.BOARD_ROWS); j++) {
-                    if (piece.shape[i-piece.y][j-piece.x] != 0) {
-                        newBoard[i][j] = piece.id;
-                    }
-                }
-            }
+            const prevBoard = gameRoom.board[user.clientId];
+            const tempBoard = this.copyBoard(prevBoard);
+            // 새로운 조각 생성
+            const piece = this.spawnPiece(gameRoom, user);
+            this.naturalDrop(tempBoard, piece);
+            
             this.server.to(roomId).emit('game:spawn', {
                 nickname: user.nickname,
-                board: newBoard,
+                board: tempBoard,
                 tick: room.tick
             });
         })
 
         room.users.forEach(user => {
             const prevBoard = gameRoom.board[user.clientId];
-            const newBoard = this.copyBoard(prevBoard);
+            const tempBoard = this.copyBoard(prevBoard);
             const piece = gameRoom.piece[user.clientId];
-            piece.y++;
-
-            for (let i=piece.y; (i-piece.y < (piece.shape.length) && i<this.BOARD_COLS); i++) {
-                for (let j=piece.x; (j-piece.x < (piece.shape[0].length) && j<this.BOARD_ROWS); j++) {
-                    if (piece.shape[i-piece.y][j-piece.x] != 0) {
-                        newBoard[i][j] = piece.id;
-                    }
-                }
-            }
+            const stat = this.naturalDrop(tempBoard, piece);
+            
+            console.table(tempBoard);
+            console.table(piece.shape)
             this.server.to(roomId).emit('game:softdrop', {
                 nickname: user.nickname,
-                board: newBoard,
+                board: tempBoard,
                 tick: room.tick
             });
+
+            if (!stat) {
+                gameRoom.board[user.clientId] = tempBoard;
+                delete gameRoom.piece[user.clientId];
+            }
         })
 
         room.tick++;
     }
 
+    gameControl(user: User, action: string, data: object) {
+        const gameRoom: Game = this.gameRooms[user.roomId];
+        switch (action) {
+            
+        }
+    }
+
+    private spawnPiece(gameRoom: Game, user: User): Piece {
+        const piece = new Piece();
+        gameRoom.piece[user.clientId] = piece;
+        return piece;
+    }
+
+    private naturalDrop(board: number[][], piece: Piece): boolean {
+        piece.y++;
+        // 만약 false라면 블록이 땅이나 다른 블록까지 떨어진 상태
+        if (!this.voidCheck(board, piece)) {
+            piece.y--;
+            if (piece.y < -1) {
+                return;
+            }
+            for (let i=piece.y; i < (piece.y + piece.shape.length); i++) {
+                for (let j=piece.x; j < (piece.x + piece.shape[0].length); j++) {
+                    if (piece.shape[i-piece.y][j-piece.x] != 0) {
+                        if (i < 0) {
+                            continue;
+                        }
+                        board[i][j] = piece.id;
+                    }
+                }
+            }
+            return false;
+        }
+        // 아니면 계속 진행
+        for (let i=piece.y; (i-piece.y < (piece.shape.length) && i<this.BOARD_COLS); i++) {
+            for (let j=piece.x; (j-piece.x < (piece.shape[0].length) && j<this.BOARD_ROWS); j++) {
+                // 블록이 보드 한 칸 위에서 내려오는 중이라면
+                if (i < 0) {
+                    continue;
+                }
+                if (piece.shape[i-piece.y][j-piece.x] != 0) {
+                    board[i][j] = piece.id;
+                }
+            }
+        }
+        return true;
+    }
+
+    private voidCheck(board: number[][], piece: Piece): boolean {
+        for (let i=piece.y; i < (piece.y + piece.shape.length); i++) {
+            for (let j=piece.x; j < (piece.x + piece.shape[0].length); j++) {
+                // 보드 바깥을 넘어가는지 체크
+                if (j < 0 || i >= this.BOARD_COLS-1 || j >= this.BOARD_ROWS-1) {
+                    return false;
+                }
+                // 블록이 보드 한 칸 위에서 내려오는 중이라면
+                if (i < 0) {
+                    continue;
+                }
+                // 블록들 끼리 충돌하는지 체크
+                if (board[i][j] != 0) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    // 깊은 복사
     private copyBoard(board: number[][]): number[][] {
         return board.map(rows => [...rows]);
     }

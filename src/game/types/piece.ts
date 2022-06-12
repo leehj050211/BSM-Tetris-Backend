@@ -36,12 +36,12 @@ export class Piece {
             [
                 [7, 7, 0],
                 [0, 7, 7]
-            ],
+            ]
         ];
 
-        this.id = Math.floor(Math.random() * 7);
-        this.shape = shapes[this.id];
+        this.id = Math.floor(Math.random() * 7)+1;
+        this.shape = shapes[this.id-1];
         this.x = 3;
-        this.y = 0;
+        this.y = -1;
     }
-  }
+}

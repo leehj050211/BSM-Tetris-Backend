@@ -72,7 +72,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         @MessageBody('action') action: string,
         @MessageBody('data') data: object,
     ) {
-        const userNameList = Object.keys(this.users).map(clientId => this.users[clientId].nickname);
-        client.emit('get users', userNameList);
+        const user: User = this.users[client.id];
+        if (!user?.roomId) {
+            return client.emit('error', `You didn't joined the game`);
+        }
+        this.gamePlayService.gameControl(user, action, data);
     }
 }
