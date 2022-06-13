@@ -58,7 +58,7 @@ export class GamePlayService {
             const tempBoard = this.copyBoard(prevBoard);
             // 새로운 조각 생성
             const piece = this.spawnPiece(gameRoom, user);
-            this.naturalDrop(tempBoard, piece);
+            this.renderPiece(tempBoard, piece);
             
             this.server.to(roomId).emit('game:spawn', {
                 nickname: user.nickname,
@@ -90,10 +90,60 @@ export class GamePlayService {
         room.tick++;
     }
 
-    gameControl(user: User, action: string, data: object) {
-        const gameRoom: Game = this.gameRooms[user.roomId];
+    gameControl(user: User, action: string, data: any) {
+        const roomId = user.roomId;
+        const gameRoom: Game = this.gameRooms[roomId];
+        const prevBoard = gameRoom.board[user.clientId];
         switch (action) {
-            
+            case 'move': {
+                const tempBoard = this.copyBoard(prevBoard);
+                const piece = gameRoom.piece[user.clientId];
+                // 생성된 조각이 없다면
+                if (!piece) {
+                    return;
+                }
+                switch (data) {
+                    case 'down': {
+                        piece.y++;
+                        break;
+                    }
+                    case 'left': {
+                        piece.x--;
+                        break;
+                    }
+                    case 'right': {
+                        piece.x++;
+                        break;
+                    }
+                    // 없는 동작이면 캔슬
+                    default: {
+                        return;
+                    }
+                }
+                // 조각이 블록에 막혀있다면 캔슬
+                if (!this.voidCheck(tempBoard, piece).flag) {
+                    switch (data) {
+                        case 'down': {
+                            piece.y--;
+                            break;
+                        }
+                        case 'left': {
+                            piece.x++;
+                            break;
+                        }
+                        case 'right': {
+                            piece.x--;
+                            break;
+                        }
+                    }
+                    return;
+                }
+                this.renderPiece(tempBoard, piece);
+                this.server.to(roomId).emit('game:softdrop', {
+                    nickname: user.nickname,
+                    board: tempBoard
+                });
+            }
         }
     }
 
@@ -106,7 +156,7 @@ export class GamePlayService {
     private naturalDrop(board: number[][], piece: Piece): boolean {
         piece.y++;
         // 만약 false라면 블록이 땅이나 다른 블록까지 떨어진 상태
-        if (!this.voidCheck(board, piece)) {
+        if (!this.voidCheck(board, piece).down) {
             piece.y--;
             if (piece.y < -1) {
                 return;
@@ -124,6 +174,11 @@ export class GamePlayService {
             return false;
         }
         // 아니면 계속 진행
+        this.renderPiece(board, piece);
+        return true;
+    }
+
+    private renderPiece(board: number[][], piece: Piece) {
         for (let i=piece.y; (i-piece.y < (piece.shape.length) && i<this.BOARD_COLS); i++) {
             for (let j=piece.x; (j-piece.x < (piece.shape[0].length) && j<this.BOARD_ROWS); j++) {
                 // 블록이 보드 한 칸 위에서 내려오는 중이라면
@@ -135,27 +190,53 @@ export class GamePlayService {
                 }
             }
         }
-        return true;
     }
 
-    private voidCheck(board: number[][], piece: Piece): boolean {
+    private voidCheck(board: number[][], piece: Piece): {
+        flag: boolean,
+        down: boolean,
+        left: boolean,
+        right: boolean
+    } {
+        const result = {
+            flag: true,
+            down: true,
+            left: true,
+            right: true
+        }
         for (let i=piece.y; i < (piece.y + piece.shape.length); i++) {
             for (let j=piece.x; j < (piece.x + piece.shape[0].length); j++) {
                 // 보드 바깥을 넘어가는지 체크
-                if (j < 0 || i >= this.BOARD_COLS-1 || j >= this.BOARD_ROWS-1) {
-                    return false;
+                if (i >= this.BOARD_COLS) {
+                    result.down = false;
+                    result.flag = false;
+                }
+                if (j < 0 ) {
+                    result.left = false;
+                    result.flag = false;
+                }
+                if (j >= this.BOARD_ROWS) {
+                    result.right = false;
+                    result.flag = false;
+                }
+                if (!result.flag) {
+                    return result;
                 }
                 // 블록이 보드 한 칸 위에서 내려오는 중이라면
                 if (i < 0) {
                     continue;
                 }
                 // 블록들 끼리 충돌하는지 체크
-                if (board[i][j] != 0) {
-                    return false;
+                if (piece.shape[i-piece.y][j-piece.x] != 0 && board[i][j] != 0) {
+                    result.down = false;
+                    result.left = false;
+                    result.right = false;
+                    result.flag = false;
+                    return result;
                 }
             }
         }
-        return true;
+        return result;
     }
 
     // 깊은 복사

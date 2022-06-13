@@ -70,7 +70,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     async gamePacket(
         @ConnectedSocket() client: Socket,
         @MessageBody('action') action: string,
-        @MessageBody('data') data: object,
+        @MessageBody('data') data: any,
     ) {
         const user: User = this.users[client.id];
         if (!user?.roomId) {
