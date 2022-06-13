@@ -41,7 +41,7 @@ export class GamePlayService {
         }, 3000);
         setTimeout(() => {
             this.server.to(room.id).emit('game:start', 'start');
-            setInterval(() => this.play(room.id), 1000);
+            setInterval(() => this.play(room.id), 700);
         }, 5000);
     }
 
@@ -54,27 +54,22 @@ export class GamePlayService {
             if (gameRoom.piece[user.clientId]) {
                 return;
             }
-            const prevBoard = gameRoom.board[user.clientId];
-            const tempBoard = this.copyBoard(prevBoard);
             // 새로운 조각 생성
             const piece = this.spawnPiece(gameRoom, user);
-            this.renderPiece(tempBoard, piece);
             
             this.server.to(roomId).emit('game:spawn', {
                 nickname: user.nickname,
-                board: tempBoard,
+                piece: piece.id,
                 tick: room.tick
             });
         })
 
         room.users.forEach(user => {
             const prevBoard = gameRoom.board[user.clientId];
-            const tempBoard = this.copyBoard(prevBoard);
+            const tempBoard = this.copyArray(prevBoard);
             const piece = gameRoom.piece[user.clientId];
             const stat = this.naturalDrop(tempBoard, piece);
             
-            console.table(tempBoard);
-            console.table(piece.shape)
             this.server.to(roomId).emit('game:softdrop', {
                 nickname: user.nickname,
                 board: tempBoard,
@@ -96,7 +91,7 @@ export class GamePlayService {
         const prevBoard = gameRoom.board[user.clientId];
         switch (action) {
             case 'move': {
-                const tempBoard = this.copyBoard(prevBoard);
+                const tempBoard = this.copyArray(prevBoard);
                 const piece = gameRoom.piece[user.clientId];
                 // 생성된 조각이 없다면
                 if (!piece) {
@@ -139,10 +134,39 @@ export class GamePlayService {
                     return;
                 }
                 this.renderPiece(tempBoard, piece);
+                this.server.to(roomId).emit('game:move', {
+                    nickname: user.nickname,
+                    board: tempBoard
+                });
+                break;
+            }
+            case 'rotate': {
+                const piece = gameRoom.piece[user.clientId];
+                // 생성된 조각이 없다면
+                if (!piece) {
+                    return;
+                }
+                if (!(['left', 'right']).includes(data)) {
+                    return;
+                }
+                const tempBoard = this.copyArray(prevBoard);
+                const prevShape = piece.shape;
+                piece.rotate(data);
+                // 조각이 블록에 막혀있다면 캔슬
+                if (!this.voidCheck(tempBoard, piece).flag) {
+                    piece.shape = prevShape;
+                    return;
+                }
+                this.renderPiece(tempBoard, piece);
                 this.server.to(roomId).emit('game:softdrop', {
                     nickname: user.nickname,
                     board: tempBoard
                 });
+                break;
+            }
+            // 없는 명령어면 캔슬
+            default: {
+                return;
             }
         }
     }
@@ -240,7 +264,7 @@ export class GamePlayService {
     }
 
     // 깊은 복사
-    private copyBoard(board: number[][]): number[][] {
-        return board.map(rows => [...rows]);
+    private copyArray(array: number[][]): number[][] {
+        return array.map(rows => [...rows]);
     }
 }
