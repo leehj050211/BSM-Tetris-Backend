@@ -4,6 +4,7 @@ import { Room } from 'src/game/types/room';
 import { User } from 'src/game/types/user';
 import { Game } from 'src/game/types/game';
 import { Piece } from 'src/game/types/piece';
+import { UserGameData } from 'src/game/types/user-game-data';
 
 @Injectable()
 export class GamePlayService {
@@ -25,11 +26,13 @@ export class GamePlayService {
         newGame.roomId = room.id;
         // 유저 수 만큼 테트리스 보드 배열 초기화
         room.users.forEach(user => {
-            newGame.board[user.clientId] = Array.from(
+            const newUserGameData = new UserGameData();
+            newUserGameData.board = Array.from(
                 {length: this.BOARD_COLS}, () => Array.from(
                     {length: this.BOARD_ROWS}, () => 0
                 )
             );
+            newGame.user[user.clientId] = newUserGameData;
         });
         this.gameRooms[room.id] = newGame;
 
@@ -50,35 +53,33 @@ export class GamePlayService {
         const gameRoom: Game = this.gameRooms[roomId];
         
         room.users.forEach(user => {
+            const userGameData = gameRoom.user[user.clientId];
             // 이미 생성된 조각이 있다면
-            if (gameRoom.piece[user.clientId]) {
+            if (userGameData.piece) {
                 return;
             }
             // 새로운 조각 생성
-            const piece = this.spawnPiece(gameRoom, user);
+            this.spawnPiece(userGameData);
             
             this.server.to(roomId).emit('game:spawn', {
                 nickname: user.nickname,
-                piece: piece.id,
+                piece: userGameData.piece.id,
                 tick: room.tick
             });
         })
 
         room.users.forEach(user => {
-            const prevBoard = gameRoom.board[user.clientId];
-            const tempBoard = this.copyArray(prevBoard);
-            const piece = gameRoom.piece[user.clientId];
-            const stat = this.naturalDrop(tempBoard, piece);
+            const userGameData = gameRoom.user[user.clientId];
+            const stat = this.naturalDrop(userGameData);
             
             this.server.to(roomId).emit('game:softdrop', {
                 nickname: user.nickname,
-                board: tempBoard,
+                board: this.renderPiece(userGameData),
                 tick: room.tick
             });
 
             if (!stat) {
-                gameRoom.board[user.clientId] = tempBoard;
-                delete gameRoom.piece[user.clientId];
+                delete userGameData.piece;
             }
         })
 
@@ -88,11 +89,10 @@ export class GamePlayService {
     gameControl(user: User, action: string, data: any) {
         const roomId = user.roomId;
         const gameRoom: Game = this.gameRooms[roomId];
-        const prevBoard = gameRoom.board[user.clientId];
+        const userGameData = gameRoom.user[user.clientId];
+        const { board, piece } = userGameData;
         switch (action) {
             case 'move': {
-                const tempBoard = this.copyArray(prevBoard);
-                const piece = gameRoom.piece[user.clientId];
                 // 생성된 조각이 없다면
                 if (!piece) {
                     return;
@@ -116,7 +116,7 @@ export class GamePlayService {
                     }
                 }
                 // 조각이 블록에 막혀있다면 캔슬
-                if (!this.voidCheck(tempBoard, piece).flag) {
+                if (!this.voidCheck(board, piece).flag) {
                     switch (data) {
                         case 'down': {
                             piece.y--;
@@ -133,15 +133,13 @@ export class GamePlayService {
                     }
                     return;
                 }
-                this.renderPiece(tempBoard, piece);
                 this.server.to(roomId).emit('game:move', {
                     nickname: user.nickname,
-                    board: tempBoard
+                    board: this.renderPiece(userGameData)
                 });
                 break;
             }
             case 'rotate': {
-                const piece = gameRoom.piece[user.clientId];
                 // 생성된 조각이 없다면
                 if (!piece) {
                     return;
@@ -149,18 +147,16 @@ export class GamePlayService {
                 if (!(['left', 'right']).includes(data)) {
                     return;
                 }
-                const tempBoard = this.copyArray(prevBoard);
                 const prevShape = piece.shape;
                 piece.rotate(data);
                 // 조각이 블록에 막혀있다면 캔슬
-                if (!this.voidCheck(tempBoard, piece).flag) {
+                if (!this.voidCheck(board, piece).flag) {
                     piece.shape = prevShape;
                     return;
                 }
-                this.renderPiece(tempBoard, piece);
                 this.server.to(roomId).emit('game:softdrop', {
                     nickname: user.nickname,
-                    board: tempBoard
+                    board: this.renderPiece(userGameData)
                 });
                 break;
             }
@@ -171,15 +167,15 @@ export class GamePlayService {
         }
     }
 
-    private spawnPiece(gameRoom: Game, user: User): Piece {
+    private spawnPiece(userGameData: UserGameData): void {
         const piece = new Piece();
-        gameRoom.piece[user.clientId] = piece;
-        return piece;
+        userGameData.piece = piece;
     }
 
-    private naturalDrop(board: number[][], piece: Piece): boolean {
+    private naturalDrop(userGameData: UserGameData): boolean {
+        const { board, piece } = userGameData;
         piece.y++;
-        // 만약 false라면 블록이 땅이나 다른 블록까지 떨어진 상태
+        // 만약 블록이 땅이나 다른 블록까지 떨어진 상태라면
         if (!this.voidCheck(board, piece).down) {
             piece.y--;
             if (piece.y < -1) {
@@ -197,12 +193,12 @@ export class GamePlayService {
             }
             return false;
         }
-        // 아니면 계속 진행
-        this.renderPiece(board, piece);
         return true;
     }
 
-    private renderPiece(board: number[][], piece: Piece) {
+    private renderPiece(userGameData: UserGameData): number[][] {
+        const { piece } = userGameData;
+        const board = this.copyArray(userGameData.board);
         for (let i=piece.y; (i-piece.y < (piece.shape.length) && i<this.BOARD_COLS); i++) {
             for (let j=piece.x; (j-piece.x < (piece.shape[0].length) && j<this.BOARD_ROWS); j++) {
                 // 블록이 보드 한 칸 위에서 내려오는 중이라면
@@ -214,6 +210,11 @@ export class GamePlayService {
                 }
             }
         }
+        // 만약 줄이 클리어되었으면
+        if (this.clearCheck(userGameData)) {
+            return userGameData.board;
+        };
+        return board;
     }
 
     private voidCheck(board: number[][], piece: Piece): {
@@ -261,6 +262,21 @@ export class GamePlayService {
             }
         }
         return result;
+    }
+
+    private clearCheck(userGameData: UserGameData): boolean {
+        const { board } = userGameData;
+        board.forEach((rows: number[], y: number) => {
+            // 줄이 블록으로 모두 채워졌다면
+            if (rows.every(value => value > 0)) {
+                // 해당 줄 삭제
+                board.splice(y, 1);
+                // 맨 윗줄에 새로운 줄 삽입
+                board.unshift(Array.from({length: this.BOARD_ROWS}, () => 0));
+                return true;
+            }
+        });
+        return false;
     }
 
     // 깊은 복사

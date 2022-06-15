@@ -1,12 +1,8 @@
-import { Piece } from "src/game/types/piece";
+import { UserGameData } from "src/game/types/user-game-data";
 
 export class Game {
     roomId: string;
-    board: {
-        [index: string]: number[][]
-    } = {};
-
-    piece: {
-        [index: string]: Piece
+    user: {
+        [index: string]: UserGameData;
     } = {};
 }
