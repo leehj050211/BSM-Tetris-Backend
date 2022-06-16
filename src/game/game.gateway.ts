@@ -44,14 +44,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @SubscribeMessage('join')
     async join(
         @ConnectedSocket() client: Socket,
-        @MessageBody('nickname') nickname: string
+        @MessageBody('username') username: string
     ) {
         if (this.users[client.id]) {
             return client.emit('error', 'Already joined the game');
         }
 
         this.users[client.id] = plainToClass(User, {
-            nickname,
+            username,
             clientId: client.id
         }, {
             excludeExtraneousValues: true
@@ -62,7 +62,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     @SubscribeMessage('getUsers')
     async getUsers(client: Socket) {
-        const userNameList = Object.keys(this.users).map(clientId => this.users[clientId].nickname);
+        const userNameList = Object.keys(this.users).map(clientId => this.users[clientId].username);
         client.emit('get users', userNameList);
     }
 

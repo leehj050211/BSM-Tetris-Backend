@@ -39,7 +39,7 @@ export class GamePlayService {
         setTimeout(() => {
             this.server.to(room.id).emit('game:info', {
                 roomId: room.id,
-                users: room.users.map(user => user.nickname)
+                users: room.users.map(user => user.username)
             });
         }, 3000);
         setTimeout(() => {
@@ -62,26 +62,35 @@ export class GamePlayService {
             this.spawnPiece(userGameData);
             
             this.server.to(roomId).emit('game:spawn', {
-                nickname: user.nickname,
-                piece: userGameData.piece.id,
+                username: user.username,
+                pieceId: userGameData.piece.id,
+                x: userGameData.piece.x,
+                y: userGameData.piece.y,
                 tick: room.tick
             });
-        })
+        });
 
         room.users.forEach(user => {
             const userGameData = gameRoom.user[user.clientId];
             const stat = this.naturalDrop(userGameData);
             
-            this.server.to(roomId).emit('game:softdrop', {
-                nickname: user.nickname,
-                board: this.renderPiece(userGameData),
-                tick: room.tick
-            });
-
-            if (!stat) {
+            // 바닥에 닿이지 않으면
+            if (stat) {
+                this.server.to(roomId).emit('game:softdrop', {
+                    username: user.username,
+                    y: userGameData.piece.y,
+                    tick: room.tick
+                });
+            } else {
+                this.server.to(roomId).emit('game:stack', {
+                    username: user.username,
+                    y: userGameData.piece.y,
+                    tick: room.tick
+                });
                 delete userGameData.piece;
+                this.clearCheck(userGameData, user);
             }
-        })
+        });
 
         room.tick++;
     }
@@ -134,8 +143,9 @@ export class GamePlayService {
                     return;
                 }
                 this.server.to(roomId).emit('game:move', {
-                    nickname: user.nickname,
-                    board: this.renderPiece(userGameData)
+                    username: user.username,
+                    x: userGameData.piece.x,
+                    y: userGameData.piece.y
                 });
                 break;
             }
@@ -155,9 +165,9 @@ export class GamePlayService {
                     piece.shape = prevShape;
                     return;
                 }
-                this.server.to(roomId).emit('game:softdrop', {
-                    nickname: user.nickname,
-                    board: this.renderPiece(userGameData)
+                this.server.to(roomId).emit('game:rotate', {
+                    username: user.username,
+                    direction: data
                 });
                 break;
             }
@@ -173,10 +183,11 @@ export class GamePlayService {
                 this.changePiece(userGameData);
                 userGameData.piece.y++;
                 this.server.to(roomId).emit('game:change', {
-                    nickname: user.nickname,
-                    board: this.renderPiece(userGameData),
-                    holdPiece: userGameData.holdPiece.id,
-                    piece: userGameData.piece.id
+                    username: user.username,
+                    holdPieceId: userGameData.holdPiece.id,
+                    pieceId: userGameData.piece.id,
+                    pieceX: userGameData.piece.x,
+                    pieceY: userGameData.piece.y
                 });
                 break;
             }
@@ -208,6 +219,7 @@ export class GamePlayService {
 
     private naturalDrop(userGameData: UserGameData): boolean {
         const { board, piece } = userGameData;
+        console.table(board);
         piece.y++;
         // 만약 블록이 땅이나 다른 블록까지 떨어진 상태라면
         if (!this.voidCheck(board, piece).down) {
@@ -245,10 +257,6 @@ export class GamePlayService {
                 }
             }
         }
-        // 만약 줄이 클리어되었으면
-        if (this.clearCheck(userGameData)) {
-            return userGameData.board;
-        };
         return board;
     }
 
@@ -299,7 +307,7 @@ export class GamePlayService {
         return result;
     }
 
-    private clearCheck(userGameData: UserGameData): boolean {
+    private clearCheck(userGameData: UserGameData, user: User) {
         const { board } = userGameData;
         board.forEach((rows: number[], y: number) => {
             // 줄이 블록으로 모두 채워졌다면
@@ -308,10 +316,13 @@ export class GamePlayService {
                 board.splice(y, 1);
                 // 맨 윗줄에 새로운 줄 삽입
                 board.unshift(Array.from({length: this.BOARD_ROWS}, () => 0));
-                return true;
+
+                this.server.to(user.roomId).emit('game:clear', {
+                    username: user.username,
+                    y
+                });
             }
         });
-        return false;
     }
 
     // 깊은 복사

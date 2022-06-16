@@ -41,9 +41,9 @@ export class GameRoomService {
 
         client.emit('join', {
             roomId,
-            users: this.rooms[roomId].users.map(user => user.nickname)
+            users: this.rooms[roomId].users.map(user => user.username)
         });
-        client.broadcast.to(roomId).emit('user:join', user.nickname);
+        client.broadcast.to(roomId).emit('user:join', user.username);
         if (this.rooms[user.roomId].users.length == this.MAX_PLAYERS) {
             this.rooms[roomId].playing = true;
             server.to(roomId).emit('game:ready', 'ready');
@@ -53,7 +53,7 @@ export class GameRoomService {
     }
 
     exitRoom(client: Socket, user: User) {
-        client.broadcast.to(user.roomId).emit('user:exit', user.nickname);
+        client.broadcast.to(user.roomId).emit('user:exit', user.username);
         this.rooms[user.roomId].users = this.rooms[user.roomId].users.filter(user => user.clientId != user.clientId);
     }
 

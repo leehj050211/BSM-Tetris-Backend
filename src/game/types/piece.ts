@@ -1,5 +1,3 @@
-import { inherits } from "util";
-
 export class Piece {
     x: number;
     y: number;

@@ -5,7 +5,7 @@ export class User {
     clientId: string;
     
     @Expose()
-    nickname: string;
+    username: string;
 
     @Exclude()
     roomId: string | null = null;
