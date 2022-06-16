@@ -144,6 +144,7 @@ export class GamePlayService {
                 if (!piece) {
                     return;
                 }
+                // 유효한 명령어인지 확인
                 if (!(['left', 'right']).includes(data)) {
                     return;
                 }
@@ -160,6 +161,25 @@ export class GamePlayService {
                 });
                 break;
             }
+            case 'change': {
+                // 생성된 조각이 없다면
+                if (!piece) {
+                    return;
+                }
+                // 이미 조각을 한 번 바꾸었다면
+                if (userGameData.pieceChange) {
+                    return;
+                }
+                this.changePiece(userGameData);
+                userGameData.piece.y++;
+                this.server.to(roomId).emit('game:change', {
+                    nickname: user.nickname,
+                    board: this.renderPiece(userGameData),
+                    holdPiece: userGameData.holdPiece.id,
+                    piece: userGameData.piece.id
+                });
+                break;
+            }
             // 없는 명령어면 캔슬
             default: {
                 return;
@@ -170,6 +190,20 @@ export class GamePlayService {
     private spawnPiece(userGameData: UserGameData): void {
         const piece = new Piece();
         userGameData.piece = piece;
+    }
+
+    private changePiece(userGameData: UserGameData): void {
+        userGameData.pieceChange = true;
+        // 홀드한 조각이 없으면
+        if (!userGameData.holdPiece) {
+            userGameData.holdPiece = userGameData.piece;
+            userGameData.holdPiece.init();
+            this.spawnPiece(userGameData);
+            return;
+        }
+        // 있으면 서로 교체
+        [userGameData.holdPiece, userGameData.piece] = [userGameData.piece, userGameData.holdPiece];
+        userGameData.holdPiece.init();
     }
 
     private naturalDrop(userGameData: UserGameData): boolean {
@@ -191,6 +225,7 @@ export class GamePlayService {
                     }
                 }
             }
+            userGameData.pieceChange = false;
             return false;
         }
         return true;

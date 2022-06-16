@@ -1,3 +1,5 @@
+import { inherits } from "util";
+
 export class Piece {
     x: number;
     y: number;
@@ -41,6 +43,10 @@ export class Piece {
 
         this.id = Math.floor(Math.random() * 7)+1;
         this.shape = shapes[this.id-1];
+        this.init();
+    }
+
+    init() {
         this.x = 3;
         this.y = -2;
     }
