@@ -4,5 +4,8 @@ export class Room {
     id: string;
     playing: boolean = false;
     tick: number = 0;
-    users: User[] = [];
+    users: {
+        [index: string]: User
+    } = {};
+    interval: NodeJS.Timer;
 }

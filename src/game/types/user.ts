@@ -1,4 +1,5 @@
 import { Expose, Exclude } from '@nestjs/class-transformer'
+import { GameData } from 'src/game/types/game-data';
 
 export class User {
     @Expose()
@@ -9,4 +10,7 @@ export class User {
 
     @Exclude()
     roomId: string | null = null;
+
+    @Exclude()
+    gameData: GameData | null = null;
 }

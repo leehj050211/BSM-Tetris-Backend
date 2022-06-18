@@ -1,6 +1,6 @@
 import { Piece } from "src/game/types/piece";
 
-export class UserGameData {
+export class GameData {
     board: number[][];
     piece: Piece;
     holdPiece: Piece;

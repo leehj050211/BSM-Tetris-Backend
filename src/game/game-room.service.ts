@@ -9,58 +9,61 @@ import { GamePlayService } from 'src/game/game-play.service';
 export class GameRoomService {
     constructor(private gamePlayService: GamePlayService) {}
     
-    private readonly MAX_PLAYERS = 1;
+    private readonly MAX_PLAYERS = 2;
     private rooms: {
         [index: string]: Room
     } = {};
 
     findRoom(server: Server, client: Socket, user: User): User {
-        let roomId: string;
         let isFind: boolean = false;
+        let room: Room;
         // 사용 가능한 방 찾기
         for (let i=0; i<Object.keys(this.rooms).length; i++) {
-            const key = Object.keys(this.rooms)[i];
-            if (!this.rooms[key].playing && this.rooms[key].users.length < this.MAX_PLAYERS) {
-                this.rooms[key].users.push(user);
-                roomId = this.rooms[key].id;
+            room = this.rooms[Object.keys(this.rooms)[i]];
+            if (!room.playing && Object.keys(room.users).length < this.MAX_PLAYERS) {
+                room.users[user.username] = user;
                 isFind = true;
             }
         }
         // 사용 가능한 방이 없으면
         if (!isFind) {
             const newRoom = this.createRoom();
-            newRoom.users.push(user);
+            newRoom.users[user.username] = user;
             this.rooms[newRoom.id] = newRoom;
-            roomId = newRoom.id;
+            room = newRoom;
             isFind = true;
         }
 
-        client.join(roomId);
-        user.roomId = roomId;
-        console.log(this.rooms[roomId].users)
+        client.join(room.id);
+        user.roomId = room.id;
 
         client.emit('join', {
-            roomId,
-            users: this.rooms[roomId].users.map(user => user.username)
+            roomId: room.id,
+            users: Object.keys(room.users).map(username => username)
         });
-        client.broadcast.to(roomId).emit('user:join', user.username);
-        if (this.rooms[user.roomId].users.length == this.MAX_PLAYERS) {
-            this.rooms[roomId].playing = true;
-            server.to(roomId).emit('game:ready', 'ready');
-            this.gamePlayService.initGame(server, this.rooms[roomId]);
+        client.broadcast.to(room.id).emit('user:join', user.username);
+        // 유저가 방에 전부 들어왔으면 게임 시작
+        if (Object.keys(room.users).length == this.MAX_PLAYERS) {
+            room.playing = true;
+            server.to(room.id).emit('game:ready', 'ready');
+            this.gamePlayService.initGame(server, room);
         }
         return user;
     }
 
     exitRoom(client: Socket, user: User) {
-        client.broadcast.to(user.roomId).emit('user:exit', user.username);
-        this.rooms[user.roomId].users = this.rooms[user.roomId].users.filter(user => user.clientId != user.clientId);
+        const room: Room = this.rooms[user.roomId];
+        client.broadcast.to(room.id).emit('user:exit', user.username);
+        delete room.users[user.username];
+        if (!Object.keys(room.users).length) {
+            clearInterval(room.interval);
+        }
     }
 
     private createRoom(): Room {
         const newRoom = new Room();
         newRoom.id = getUUID().replaceAll('-', '');
-        newRoom.users = [];
+        newRoom.users = {};
         return newRoom;
     }
 }

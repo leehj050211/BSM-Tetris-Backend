@@ -2,9 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { Room } from 'src/game/types/room';
 import { User } from 'src/game/types/user';
-import { Game } from 'src/game/types/game';
 import { Piece } from 'src/game/types/piece';
-import { UserGameData } from 'src/game/types/user-game-data';
+import { GameData } from 'src/game/types/game-data';
 
 @Injectable()
 export class GamePlayService {
@@ -15,80 +14,71 @@ export class GamePlayService {
         [index: string]: Room
     } = {};
 
-    private gameRooms: {
-        [index: string]: Game
-    } = {};
-
     initGame(server: Server, room: Room) {
         this.server = server;
         this.rooms[room.id] = room;
-        const newGame = new Game();
-        newGame.roomId = room.id;
         // 유저 수 만큼 테트리스 보드 배열 초기화
-        room.users.forEach(user => {
-            const newUserGameData = new UserGameData();
-            newUserGameData.board = Array.from(
+        Object.values(room.users).forEach(user => {
+            const newgameData = new GameData();
+            newgameData.board = Array.from(
                 {length: this.BOARD_COLS}, () => Array.from(
                     {length: this.BOARD_ROWS}, () => 0
                 )
             );
-            newGame.user[user.clientId] = newUserGameData;
+            room.users[user.username].gameData = newgameData;
         });
-        this.gameRooms[room.id] = newGame;
 
         setTimeout(() => {
             this.server.to(room.id).emit('game:info', {
                 roomId: room.id,
-                users: room.users.map(user => user.username)
+                users: Object.keys(room.users).map(username => username)
             });
         }, 3000);
         setTimeout(() => {
             this.server.to(room.id).emit('game:start', 'start');
-            setInterval(() => this.play(room.id), 700);
+            room.interval = setInterval(() => this.play(room), 700);
         }, 5000);
     }
 
-    play(roomId: string) {
-        const room: Room = this.rooms[roomId];
-        const gameRoom: Game = this.gameRooms[roomId];
+    play(room: Room) {
         
-        room.users.forEach(user => {
-            const userGameData = gameRoom.user[user.clientId];
+        Object.values(room.users).forEach(user => {
+            const gameData: GameData = user.gameData;
             // 이미 생성된 조각이 있다면
-            if (userGameData.piece) {
+            if (gameData.piece) {
                 return;
             }
             // 새로운 조각 생성
-            this.spawnPiece(userGameData);
+            this.spawnPiece(gameData);
             
-            this.server.to(roomId).emit('game:spawn', {
+            this.server.to(room.id).emit('game:spawn', {
                 username: user.username,
-                pieceId: userGameData.piece.id,
-                x: userGameData.piece.x,
-                y: userGameData.piece.y,
+                pieceId: gameData.piece.id,
+                x: gameData.piece.x,
+                y: gameData.piece.y,
                 tick: room.tick
             });
         });
 
-        room.users.forEach(user => {
-            const userGameData = gameRoom.user[user.clientId];
-            const stat = this.naturalDrop(userGameData);
+        Object.values(room.users).forEach(user => {
+            const gameData: GameData = user.gameData;
+            const stat = this.naturalDrop(gameData);
             
             // 바닥에 닿이지 않으면
             if (stat) {
-                this.server.to(roomId).emit('game:softdrop', {
+                this.server.to(room.id).emit('game:softdrop', {
                     username: user.username,
-                    y: userGameData.piece.y,
+                    y: gameData.piece.y,
                     tick: room.tick
                 });
             } else {
-                this.server.to(roomId).emit('game:stack', {
+                this.server.to(room.id).emit('game:stack', {
                     username: user.username,
-                    y: userGameData.piece.y,
+                    board: this.renderPiece(gameData),
                     tick: room.tick
                 });
-                delete userGameData.piece;
-                this.clearCheck(userGameData, user);
+                delete gameData.piece;
+                this.clearCheck(gameData, user);
             }
         });
 
@@ -97,9 +87,8 @@ export class GamePlayService {
 
     gameControl(user: User, action: string, data: any) {
         const roomId = user.roomId;
-        const gameRoom: Game = this.gameRooms[roomId];
-        const userGameData = gameRoom.user[user.clientId];
-        const { board, piece } = userGameData;
+        const gameData = this.rooms[user.roomId].users[user.username].gameData;
+        const { board, piece } = gameData;
         switch (action) {
             case 'move': {
                 // 생성된 조각이 없다면
@@ -144,8 +133,8 @@ export class GamePlayService {
                 }
                 this.server.to(roomId).emit('game:move', {
                     username: user.username,
-                    x: userGameData.piece.x,
-                    y: userGameData.piece.y
+                    x: gameData.piece.x,
+                    y: gameData.piece.y
                 });
                 break;
             }
@@ -177,17 +166,17 @@ export class GamePlayService {
                     return;
                 }
                 // 이미 조각을 한 번 바꾸었다면
-                if (userGameData.pieceChange) {
+                if (gameData.pieceChange) {
                     return;
                 }
-                this.changePiece(userGameData);
-                userGameData.piece.y++;
+                this.changePiece(gameData);
+                gameData.piece.y++;
                 this.server.to(roomId).emit('game:change', {
                     username: user.username,
-                    holdPieceId: userGameData.holdPiece.id,
-                    pieceId: userGameData.piece.id,
-                    pieceX: userGameData.piece.x,
-                    pieceY: userGameData.piece.y
+                    holdPieceId: gameData.holdPiece.id,
+                    pieceId: gameData.piece.id,
+                    pieceX: gameData.piece.x,
+                    pieceY: gameData.piece.y
                 });
                 break;
             }
@@ -198,28 +187,27 @@ export class GamePlayService {
         }
     }
 
-    private spawnPiece(userGameData: UserGameData): void {
+    private spawnPiece(gameData: GameData): void {
         const piece = new Piece();
-        userGameData.piece = piece;
+        gameData.piece = piece;
     }
 
-    private changePiece(userGameData: UserGameData): void {
-        userGameData.pieceChange = true;
+    private changePiece(gameData: GameData): void {
+        gameData.pieceChange = true;
         // 홀드한 조각이 없으면
-        if (!userGameData.holdPiece) {
-            userGameData.holdPiece = userGameData.piece;
-            userGameData.holdPiece.init();
-            this.spawnPiece(userGameData);
+        if (!gameData.holdPiece) {
+            gameData.holdPiece = gameData.piece;
+            gameData.holdPiece.init();
+            this.spawnPiece(gameData);
             return;
         }
         // 있으면 서로 교체
-        [userGameData.holdPiece, userGameData.piece] = [userGameData.piece, userGameData.holdPiece];
-        userGameData.holdPiece.init();
+        [gameData.holdPiece, gameData.piece] = [gameData.piece, gameData.holdPiece];
+        gameData.holdPiece.init();
     }
 
-    private naturalDrop(userGameData: UserGameData): boolean {
-        const { board, piece } = userGameData;
-        console.table(board);
+    private naturalDrop(gameData: GameData): boolean {
+        const { board, piece } = gameData;
         piece.y++;
         // 만약 블록이 땅이나 다른 블록까지 떨어진 상태라면
         if (!this.voidCheck(board, piece).down) {
@@ -237,15 +225,15 @@ export class GamePlayService {
                     }
                 }
             }
-            userGameData.pieceChange = false;
+            gameData.pieceChange = false;
             return false;
         }
         return true;
     }
 
-    private renderPiece(userGameData: UserGameData): number[][] {
-        const { piece } = userGameData;
-        const board = this.copyArray(userGameData.board);
+    private renderPiece(gameData: GameData): number[][] {
+        const { piece } = gameData;
+        const board = this.copyArray(gameData.board);
         for (let i=piece.y; (i-piece.y < (piece.shape.length) && i<this.BOARD_COLS); i++) {
             for (let j=piece.x; (j-piece.x < (piece.shape[0].length) && j<this.BOARD_ROWS); j++) {
                 // 블록이 보드 한 칸 위에서 내려오는 중이라면
@@ -307,8 +295,8 @@ export class GamePlayService {
         return result;
     }
 
-    private clearCheck(userGameData: UserGameData, user: User) {
-        const { board } = userGameData;
+    private clearCheck(gameData: GameData, user: User) {
+        const { board } = gameData;
         board.forEach((rows: number[], y: number) => {
             // 줄이 블록으로 모두 채워졌다면
             if (rows.every(value => value > 0)) {
