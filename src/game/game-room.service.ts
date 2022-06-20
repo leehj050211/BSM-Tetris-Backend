@@ -9,7 +9,7 @@ import { GamePlayService } from 'src/game/game-play.service';
 export class GameRoomService {
     constructor(private gamePlayService: GamePlayService) {}
     
-    private readonly MAX_PLAYERS = 2;
+    private readonly MAX_PLAYERS = 1;
     private rooms: {
         [index: string]: Room
     } = {};

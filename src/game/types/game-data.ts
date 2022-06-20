@@ -5,4 +5,5 @@ export class GameData {
     piece: Piece;
     holdPiece: Piece;
     pieceChange: boolean = false;
+    pieceBag: number[] = [];
 }

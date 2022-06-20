@@ -4,11 +4,31 @@ export class Piece {
     id: number;
     shape: number[][];
     
-    constructor() {
-      this.spawn();
+    constructor(pieceBag: number[]) {
+        this.spawn(this.getRandom(pieceBag));
+    }
+
+    getRandom(pieceBag: number[]): number {
+        // 배열이 비어있다면 새로 다시 채워넣음
+        if (!pieceBag.length) {
+            for (let i=1; i<=7; i++) {
+                pieceBag.push(i);
+            }
+            // 피셔-예이츠 셔플 알고리즘
+            for (let i=6; i>0; i--) {
+                const pos = Math.floor(Math.random() * (i + 1));
+                const temp = pieceBag[i];
+                pieceBag[i] = pieceBag[pos];
+                pieceBag[pos] = temp;
+            }
+        }
+        const idx = Math.floor(Math.random() * pieceBag.length);
+        const id = pieceBag[idx];
+        pieceBag.splice(idx, 1);
+        return id;
     }
     
-    spawn() {
+    spawn(id: number) {
         const shapes = [
             [
                 [1, 1, 1, 1]
@@ -39,7 +59,7 @@ export class Piece {
             ]
         ];
 
-        this.id = Math.floor(Math.random() * 7)+1;
+        this.id = id;
         this.shape = shapes[this.id-1];
         this.init();
     }

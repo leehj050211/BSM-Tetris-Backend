@@ -188,7 +188,7 @@ export class GamePlayService {
     }
 
     private spawnPiece(gameData: GameData): void {
-        const piece = new Piece();
+        const piece = new Piece(gameData.pieceBag);
         gameData.piece = piece;
     }
 
