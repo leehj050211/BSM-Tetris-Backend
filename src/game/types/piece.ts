@@ -5,6 +5,7 @@ export class Piece {
     shape: number[][];
     
     constructor(pieceBag: number[]) {
+        if (pieceBag === undefined) return;
         this.spawn(this.getRandom(pieceBag));
     }
 

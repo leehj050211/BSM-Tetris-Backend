@@ -4,6 +4,7 @@ import { Room } from 'src/game/types/room';
 import { User } from 'src/game/types/user';
 import { Piece } from 'src/game/types/piece';
 import { GameData } from 'src/game/types/game-data';
+import { plainToClass } from '@nestjs/class-transformer';
 
 @Injectable()
 export class GamePlayService {
@@ -41,7 +42,6 @@ export class GamePlayService {
     }
 
     play(room: Room) {
-        
         Object.values(room.users).forEach(user => {
             const gameData: GameData = user.gameData;
             // 이미 생성된 조각이 있다면
@@ -147,13 +147,13 @@ export class GamePlayService {
                 if (!(['left', 'right']).includes(data)) {
                     return;
                 }
-                const prevShape = piece.shape;
-                piece.rotate(data);
+                const pieceCheck = plainToClass(Piece, piece);
+                pieceCheck.rotate(data);
                 // 조각이 블록에 막혀있다면 캔슬
-                if (!this.voidCheck(board, piece).flag) {
-                    piece.shape = prevShape;
+                if (!this.voidCheck(board, pieceCheck).flag) {
                     return;
                 }
+                piece.shape = pieceCheck.shape;
                 this.server.to(roomId).emit('game:rotate', {
                     username: user.username,
                     direction: data
