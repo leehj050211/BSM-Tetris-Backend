@@ -87,9 +87,27 @@ export class GamePlayService {
 
     gameControl(user: User, action: string, data: any) {
         const roomId = user.roomId;
-        const gameData = this.rooms[user.roomId].users[user.username].gameData;
+        const room = this.rooms[user.roomId];
+        const gameData = room.users[user.username].gameData;
         const { board, piece } = gameData;
         switch (action) {
+            case 'harddrop': {
+                // 생성된 조각이 없다면
+                if (!piece) {
+                    return;
+                }
+                // 블록이 바닥에 닿일 때 까지
+                while (this.naturalDrop(gameData));
+
+                this.server.to(roomId).emit('game:stack', {
+                    username: user.username,
+                    board: this.renderPiece(gameData),
+                    tick: room.tick
+                });
+                delete gameData.piece;
+                this.clearCheck(gameData, user);
+                break;
+            }
             case 'move': {
                 // 생성된 조각이 없다면
                 if (!piece) {
