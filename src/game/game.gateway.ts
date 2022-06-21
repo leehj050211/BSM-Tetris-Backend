@@ -24,18 +24,28 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     } = {};
 
     private clients: {
-        [index: string]: Socket
+        [index: string]: {
+            username?: string,
+            socket: Socket
+        }
     } = {};
 
     async handleConnection(client: Socket) {
-        this.clients[client.id] = client;
+        this.clients[client.id] = {
+            socket: client
+        };
         console.log('client connected. clientID: ', client.id);
     }
 
     async handleDisconnect(client: Socket) {
-        if (this.users[client.id]?.roomId) {
-            this.gameRoomService.exitRoom(client, this.users[client.id]);
-            delete this.users[client.id];
+        if (this.clients[client.id].username === undefined) {
+            return delete this.clients[client.id];
+        }
+        const username = this.clients[client.id].username;
+        const user: User = this.users[username];
+        if (user.roomId) {
+            this.gameRoomService.exitRoom(client, user);
+            delete this.users[username];
         }
         delete this.clients[client.id];
         console.log('client disconnected. clientID: ', client.id);
@@ -46,24 +56,41 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         @ConnectedSocket() client: Socket,
         @MessageBody('username') username: string
     ) {
-        if (this.users[client.id]) {
+        if (this.clients[client.id].username !== undefined) {
             return client.emit('error', 'Already joined the game');
         }
-
-        this.users[client.id] = plainToClass(User, {
+        if (this.users[username] !== undefined) {
+            return client.emit('error', 'Existing username');
+        }
+        const newUser: User = plainToClass(User, {
             username,
             clientId: client.id
         }, {
             excludeExtraneousValues: true
         });
 
-        this.users[client.id] = this.gameRoomService.findRoom(this.server, client, this.users[client.id]);
+        this.users[username] = newUser;
+        this.clients[client.id].username = username;
+        this.gameRoomService.findRoom(this.server, client, newUser);
     }
 
     @SubscribeMessage('getUsers')
     async getUsers(client: Socket) {
-        const userNameList = Object.keys(this.users).map(clientId => this.users[clientId].username);
+        const userNameList = Object.keys(this.users);
         client.emit('get users', userNameList);
+    }
+
+    @SubscribeMessage('room:info')
+    async getRoomInfo(@ConnectedSocket() client: Socket) {
+        if (this.clients[client.id].username === undefined) {
+            return client.emit('error', `You didn't joined the game`);
+        }
+        const username = this.clients[client.id].username;
+        const user: User = this.users[username];
+        if (!user.roomId) {
+            return client.emit('error', `You didn't joined the game`);
+        }
+        this.gameRoomService.getRoomInfo(client, user);
     }
 
     @SubscribeMessage('game')
@@ -72,8 +99,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         @MessageBody('action') action: string,
         @MessageBody('data') data: any,
     ) {
-        const user: User = this.users[client.id];
-        if (!user?.roomId) {
+        if (this.clients[client.id].username === undefined) {
+            return client.emit('error', `You didn't joined the game`);
+        }
+        const username = this.clients[client.id].username;
+        const user: User = this.users[username];
+        if (!user.roomId) {
             return client.emit('error', `You didn't joined the game`);
         }
         this.gamePlayService.gameControl(user, action, data);

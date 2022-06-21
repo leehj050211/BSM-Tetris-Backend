@@ -9,7 +9,7 @@ import { GamePlayService } from 'src/game/game-play.service';
 export class GameRoomService {
     constructor(private gamePlayService: GamePlayService) {}
     
-    private readonly MAX_PLAYERS = 1;
+    private readonly MAX_PLAYERS = 3;
     private rooms: {
         [index: string]: Room
     } = {};
@@ -37,16 +37,15 @@ export class GameRoomService {
         client.join(room.id);
         user.roomId = room.id;
 
-        client.emit('join', {
-            roomId: room.id,
-            users: Object.keys(room.users).map(username => username)
-        });
-        client.broadcast.to(room.id).emit('user:join', user.username);
+        client.broadcast.to(room.id).emit('room:user-join', user.username);
+        client.emit('room:join');
         // 유저가 방에 전부 들어왔으면 게임 시작
         if (Object.keys(room.users).length == this.MAX_PLAYERS) {
             room.playing = true;
-            server.to(room.id).emit('game:ready', 'ready');
-            this.gamePlayService.initGame(server, room);
+            setTimeout(() => {
+                server.to(room.id).emit('game:ready', 'ready');
+                this.gamePlayService.initGame(server, room);
+            }, 100);
         }
         return user;
     }
@@ -58,6 +57,15 @@ export class GameRoomService {
         if (!Object.keys(room.users).length) {
             clearInterval(room.interval);
         }
+    }
+
+    getRoomInfo(client: Socket, user: User) {
+        const room: Room = this.rooms[user.roomId];
+        client.emit('room:info', {
+            roomId: room.id,
+            users: Object.keys(room.users),
+            maxUsers: this.MAX_PLAYERS
+        });
     }
 
     private createRoom(): Room {
