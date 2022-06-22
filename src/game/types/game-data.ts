@@ -6,4 +6,5 @@ export class GameData {
     holdPiece: Piece;
     pieceChange: boolean = false;
     pieceBag: number[] = [];
+    ranking: number = 0;
 }

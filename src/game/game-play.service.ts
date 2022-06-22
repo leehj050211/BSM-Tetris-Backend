@@ -18,8 +18,9 @@ export class GamePlayService {
     initGame(server: Server, room: Room) {
         this.server = server;
         this.rooms[room.id] = room;
-        // 유저 수 만큼 테트리스 보드 배열 초기화
+        room.leftPlayers = Object.keys(room.users).length;
         Object.values(room.users).forEach(user => {
+            // 테트리스 보드 배열 초기화
             const newgameData = new GameData();
             newgameData.board = Array.from(
                 {length: this.BOARD_COLS}, () => Array.from(
@@ -42,26 +43,26 @@ export class GamePlayService {
     }
 
     play(room: Room) {
-        Object.values(room.users).forEach(user => {
+        Object.values(room.users)
+            .filter(user => user.gameData.ranking == 0)
+            .forEach(user => {
             const gameData: GameData = user.gameData;
-            // 이미 생성된 조각이 있다면
-            if (gameData.piece) {
-                return;
-            }
-            // 새로운 조각 생성
-            this.spawnPiece(gameData);
-            
-            this.server.to(room.id).emit('game:spawn', {
-                username: user.username,
-                pieceId: gameData.piece.id,
-                x: gameData.piece.x,
-                y: gameData.piece.y,
-                tick: room.tick
-            });
-        });
 
-        Object.values(room.users).forEach(user => {
-            const gameData: GameData = user.gameData;
+            // 이미 생성된 조각이 없다면
+            if (!gameData.piece) {
+                // 새로운 조각 생성
+                this.spawnPiece(gameData);
+                
+                this.server.to(room.id).emit('game:spawn', {
+                    username: user.username,
+                    pieceId: gameData.piece.id,
+                    x: gameData.piece.x,
+                    y: gameData.piece.y,
+                    tick: room.tick
+                });
+            }
+
+            // 게임 진행
             const stat = this.naturalDrop(gameData);
             
             // 바닥에 닿이지 않으면
@@ -72,6 +73,17 @@ export class GamePlayService {
                     tick: room.tick
                 });
             } else {
+                // 만약 게임 오버되었다면
+                if (gameData.piece.y < 0) {
+                    gameData.ranking = room.leftPlayers--;
+                    return this.server.to(room.id).emit('game:gameover', {
+                        username: user.username,
+                        board: this.renderPiece(gameData),
+                        ranking: gameData.ranking,
+                        tick: room.tick
+                    });
+                }
+                // 아니면
                 this.server.to(room.id).emit('game:stack', {
                     username: user.username,
                     board: this.renderPiece(gameData),
@@ -89,6 +101,9 @@ export class GamePlayService {
         const roomId = user.roomId;
         const room = this.rooms[user.roomId];
         const gameData = room.users[user.username].gameData;
+        // 게임 오버된 플레이어라면
+        if (gameData.ranking != 0) return;
+
         const { board, piece } = gameData;
         switch (action) {
             case 'harddrop': {
