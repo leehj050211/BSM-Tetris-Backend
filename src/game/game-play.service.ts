@@ -18,7 +18,13 @@ export class GamePlayService {
     initGame(server: Server, room: Room) {
         this.server = server;
         this.rooms[room.id] = room;
+        // 방 설정 초기화
         room.leftPlayers = Object.keys(room.users).length;
+        room.tick = 0;
+        room.tickDelay = 800;
+        room.tickRate = 0;
+        room.level = 0;
+
         Object.values(room.users).forEach(user => {
             // 테트리스 보드 배열 초기화
             const newgameData = new GameData();
@@ -33,16 +39,41 @@ export class GamePlayService {
         setTimeout(() => {
             this.server.to(room.id).emit('game:info', {
                 roomId: room.id,
-                users: Object.keys(room.users).map(username => username)
+                users: Object.keys(room.users).map(username => username),
+                level: room.level,
+                tickRate: room.tickRate,
+                tick: room.tick
             });
         }, 3000);
         setTimeout(() => {
+            room.playing = true;
             this.server.to(room.id).emit('game:start', 'start');
-            room.interval = setInterval(() => this.play(room), 700);
+            room.interval = setInterval(() => this.play(room), room.tickDelay);
         }, 5000);
     }
 
     play(room: Room) {
+        if (room.leftPlayers <= 0) {
+            room.playing = false;
+            clearInterval(room.interval);
+        }
+        if (!room.playing) return;
+
+        // 난이도 설정
+        if (room.level < 10 && room.tick % (1 + 20 * (room.level * room.level)) == 0) {
+            room.tickDelay -= 75;
+            room.tickRate = Math.floor((1000 / room.tickDelay) * 100) / 100;
+            room.level++;
+            clearInterval(room.interval);
+            room.interval = setInterval(() => this.play(room), room.tickDelay);
+
+            this.server.to(room.id).emit('game:level', {
+                level: room.level,
+                tickRate: room.tickRate,
+                tick: room.tick
+            });
+        }
+
         Object.values(room.users)
             .filter(user => user.gameData.ranking == 0)
             .forEach(user => {
@@ -57,8 +88,7 @@ export class GamePlayService {
                     username: user.username,
                     pieceId: gameData.piece.id,
                     x: gameData.piece.x,
-                    y: gameData.piece.y,
-                    tick: room.tick
+                    y: gameData.piece.y
                 });
             }
 
@@ -100,6 +130,7 @@ export class GamePlayService {
     gameControl(user: User, action: string, data: any) {
         const roomId = user.roomId;
         const room = this.rooms[user.roomId];
+        if (!room.playing) return;
         const gameData = room.users[user.username].gameData;
         // 게임 오버된 플레이어라면
         if (gameData.ranking != 0) return;
