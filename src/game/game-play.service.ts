@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
+import { plainToClass } from '@nestjs/class-transformer';
 import { Server, Socket } from 'socket.io';
 import { Room } from 'src/game/types/room';
 import { User } from 'src/game/types/user';
 import { Piece } from 'src/game/types/piece';
 import { GameData } from 'src/game/types/game-data';
-import { plainToClass } from '@nestjs/class-transformer';
+import LEVEL from 'src/game/types/level';
 
 @Injectable()
 export class GamePlayService {
@@ -21,9 +22,9 @@ export class GamePlayService {
         // 방 설정 초기화
         room.leftPlayers = Object.keys(room.users).length;
         room.tick = 0;
-        room.tickDelay = 800;
-        room.tickRate = 0;
-        room.level = 0;
+        room.tickDelay = LEVEL[room.tick].delay;
+        room.tickRate = Math.floor((1000 / room.tickDelay) * 100) / 100;
+        room.level = LEVEL[room.tick].level;
 
         Object.values(room.users).forEach(user => {
             // 테트리스 보드 배열 초기화
@@ -60,10 +61,10 @@ export class GamePlayService {
         if (!room.playing) return;
 
         // 난이도 설정
-        if (room.level < 10 && room.tick % (1 + 20 * (room.level * room.level)) == 0) {
-            room.tickDelay -= 75;
+        if (LEVEL[room.tick]) {
+            room.tickDelay = LEVEL[room.tick].delay;
             room.tickRate = Math.floor((1000 / room.tickDelay) * 100) / 100;
-            room.level++;
+            room.level = LEVEL[room.tick].level;
             clearInterval(room.interval);
             room.interval = setInterval(() => this.play(room), room.tickDelay);
 
@@ -211,7 +212,10 @@ export class GamePlayService {
                 if (!(['left', 'right']).includes(data)) {
                     return;
                 }
-                const pieceCheck = plainToClass(Piece, piece);
+                const pieceCheck = plainToClass(Piece, {
+                    ...piece,
+                    shape: this.copyArray(piece.shape)
+                });
                 pieceCheck.rotate(data);
                 // 조각이 블록에 막혀있다면 캔슬
                 if (!this.voidCheck(board, pieceCheck).flag) {
@@ -237,7 +241,7 @@ export class GamePlayService {
                 gameData.piece.y++;
                 this.server.to(roomId).emit('game:change', {
                     username: user.username,
-                    holdPieceId: gameData.holdPiece.id,
+                    holdPieceId: gameData.holdPieceId,
                     pieceId: gameData.piece.id,
                     pieceX: gameData.piece.x,
                     pieceY: gameData.piece.y
@@ -252,22 +256,25 @@ export class GamePlayService {
     }
 
     private spawnPiece(gameData: GameData): void {
-        const piece = new Piece(gameData.pieceBag);
+        const piece = new Piece({
+            pieceBag: gameData.pieceBag
+        });
         gameData.piece = piece;
     }
 
     private changePiece(gameData: GameData): void {
         gameData.pieceChange = true;
         // 홀드한 조각이 없으면
-        if (!gameData.holdPiece) {
-            gameData.holdPiece = gameData.piece;
-            gameData.holdPiece.init();
+        if (!gameData.holdPieceId) {
+            gameData.holdPieceId = gameData.piece.id;
             this.spawnPiece(gameData);
             return;
         }
         // 있으면 서로 교체
-        [gameData.holdPiece, gameData.piece] = [gameData.piece, gameData.holdPiece];
-        gameData.holdPiece.init();
+        const holdPiece = new Piece({
+            pieceId: gameData.holdPieceId
+        });
+        [gameData.holdPieceId, gameData.piece] = [gameData.piece.id, holdPiece];
     }
 
     private naturalDrop(gameData: GameData): boolean {

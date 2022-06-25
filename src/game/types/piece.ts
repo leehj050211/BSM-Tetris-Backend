@@ -3,10 +3,17 @@ export class Piece {
     y: number;
     id: number;
     shape: number[][];
-    
-    constructor(pieceBag: number[]) {
-        if (pieceBag === undefined) return;
-        this.spawn(this.getRandom(pieceBag));
+
+    constructor(data: {
+        pieceBag?: number[],
+        pieceId?: number
+    }) {
+        if (!data) return;
+        if (data.pieceBag) {
+            this.spawn(this.getRandom(data.pieceBag));
+        } else if (data.pieceId) {
+            this.spawn(data.pieceId);
+        }
     }
 
     getRandom(pieceBag: number[]): number {
@@ -62,10 +69,6 @@ export class Piece {
 
         this.id = id;
         this.shape = shapes[this.id-1];
-        this.init();
-    }
-
-    init() {
         this.x = 3;
         this.y = -2;
     }

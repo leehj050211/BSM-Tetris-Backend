@@ -10,6 +10,6 @@ export class Room {
     level: number = 0;
     tick: number = 0;
     tickRate: number = 0;
-    tickDelay: number = 800;
+    tickDelay: number = 700;
     interval: NodeJS.Timer;
 }
