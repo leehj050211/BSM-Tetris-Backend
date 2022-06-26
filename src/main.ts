@@ -1,6 +1,10 @@
+import * as dotenv from 'dotenv';
+dotenv.config({path: '.env'});
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
+import { ValidationPipe } from '@nestjs/common';
+import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -15,6 +19,19 @@ async function bootstrap() {
   app.use(helmet.permittedCrossDomainPolicies());
   app.use(helmet.referrerPolicy());
   app.use(helmet.xssFilter());
-  await app.listen(4004);
+  
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true
+      }
+    })
+  );
+  app.use(cookieParser());
+  app.setGlobalPrefix('api');
+  await app.listen(3000);
 }
 bootstrap();
