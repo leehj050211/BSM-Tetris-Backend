@@ -5,12 +5,18 @@ import { UserController } from './user.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserEntity } from './entities/user.entity';
 import { ClassTransformer } from '@nestjs/class-transformer';
+import { JwtModule } from '@nestjs/jwt';
+import { TokenEntity } from 'src/user/entities/token.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([UserEntity]),
+    TypeOrmModule.forFeature([
+        UserEntity,
+        TokenEntity
+    ]),
     HttpModule,
-    ClassTransformer
+    ClassTransformer,
+    JwtModule
   ],
   controllers: [UserController],
   providers: [UserService]
