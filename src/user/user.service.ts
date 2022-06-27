@@ -144,5 +144,5 @@ export class UserService {
         refreshToken.created = new Date;
         await this.tokenRepository.save(refreshToken);
         return refreshToken;
-      }
+    }
 }

@@ -6,9 +6,12 @@ import { Player } from 'src/game/types/player';
 import { Piece } from 'src/game/types/piece';
 import { GameData } from 'src/game/types/game-data';
 import LEVEL from 'src/game/types/level';
+import { RankingService } from 'src/ranking/ranking.service';
 
 @Injectable()
 export class GamePlayService {
+    constructor(private rankingService: RankingService) {}
+
     private server: Server;
     private BOARD_ROWS = 10;
     private BOARD_COLS = 20;
@@ -107,6 +110,11 @@ export class GamePlayService {
                 // 만약 게임 오버되었다면
                 if (gameData.piece.y < 0) {
                     gameData.ranking = room.leftPlayers--;
+                    // 만약 로그인된 유저라면 랭킹 업데이트
+                    if (player.user) {
+                        this.rankingService.uploadData(player.user, room.tick, room.level);
+                    }
+
                     return this.server.to(room.id).emit('game:gameover', {
                         username: player.username,
                         board: this.renderPiece(gameData),

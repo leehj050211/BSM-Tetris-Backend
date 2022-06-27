@@ -75,6 +75,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }, {
             excludeExtraneousValues: true
         });
+        if (user) newPlayer.user = user;
 
         this.players[username] = newPlayer;
         this.clients[client.id].username = username;
