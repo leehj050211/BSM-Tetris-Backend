@@ -1,11 +1,11 @@
-import { User } from "src/game/types/user";
+import { Player } from "src/game/types/player";
 
 export class Room {
     id: string;
     playing: boolean = false;
     leftPlayers: number = 0;
-    users: {
-        [index: string]: User
+    players: {
+        [index: string]: Player
     } = {};
     level: number = 0;
     tick: number = 0;
