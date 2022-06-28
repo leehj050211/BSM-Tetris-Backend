@@ -21,7 +21,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         super({
             jwtFromRequest: ExtractJwt.fromExtractors([
                 (req: Request) => {
-                    return req?.cookies?.token || req?.cookies?.refreshToken;
+                    return req?.cookies?.tetris_token || req?.cookies?.tetris_refreshToken;
                 }
             ]),
             secretOrKey: process.env.SECRET_KEY,
@@ -33,7 +33,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         if (user.usercode) {
             return user;
         }
-        const { refreshToken } = this.jwtService.verify(req?.cookies?.refreshToken);
+        const { refreshToken } = this.jwtService.verify(req?.cookies?.tetris_refreshToken);
         if (refreshToken === undefined) {
             throw new UnauthorizedException();
         }

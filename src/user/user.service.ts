@@ -33,10 +33,10 @@ export class UserService {
         res: Response,
         dto: CreateUserOAuthDTO
     ) {
-        const { authcode } = dto;
+        const { code } = dto;
 
         const getTokenPayload = {
-            authcode,
+            authcode: code,
             clientId: CLIENT_ID,
             clientSecret: CLIENT_SECRET
         };
@@ -83,7 +83,8 @@ export class UserService {
                 throw new NotFoundException('User not Found');
             }
         }
-        return this.login(res, userInfo);
+        await this.login(res, userInfo);
+        res.redirect('/');
     }
 
     private async login(
@@ -103,12 +104,12 @@ export class UserService {
             expiresIn: '60d'
         });
         
-        res.cookie('token', token, {
+        res.cookie('tetris_token', token, {
             path: '/',
             httpOnly: true,
             maxAge: 1000*60*60
         });
-        res.cookie('refreshToken', refreshToken, {
+        res.cookie('tetris_refreshToken', refreshToken, {
             path: '/',
             httpOnly: true,
             maxAge: 24*60*1000*60*60

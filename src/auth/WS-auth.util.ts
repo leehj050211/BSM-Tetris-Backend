@@ -31,7 +31,7 @@ export class WSAuthUtil {
         }
         const token = client.request.headers.cookie
             ?.split('; ')
-            .find(cookie => cookie.startsWith('token='))
+            .find(cookie => cookie.startsWith('tetris_token='))
             ?.split('=')[1];
         
         try {
@@ -42,7 +42,7 @@ export class WSAuthUtil {
         // 인증에 실패했다면 리프레시 토큰이 사용 가능한지 확인
         let refreshToken = client.request.headers.cookie
             ?.split('; ')
-            .find(cookie => cookie.startsWith('refreshToken='))
+            .find(cookie => cookie.startsWith('tetris_refreshToken='))
             ?.split('=')[1];
         if (!refreshToken) {
             return null;

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { CreateUserOAuthDTO } from 'src/user/dto/create-user-oauth.dto';
 import { UserService } from './user.service';
@@ -11,10 +11,10 @@ import { plainToClass } from '@nestjs/class-transformer';
 export class UserController {
     constructor(private readonly userService: UserService) {}
 
-    @Post('oauth/bsm')
+    @Get('oauth/bsm')
     BSMOAuth(
         @Res({passthrough: true}) res: Response,
-        @Body() dto: CreateUserOAuthDTO
+        @Query() dto: CreateUserOAuthDTO
     ) {
         return this.userService.BSMOAuth(res, dto);
     }

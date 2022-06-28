@@ -81,7 +81,7 @@ export class RankingService {
         
         return plainToClass(
             ViewRankingType,
-            rankingInfo,
+            rankingInfo[0],
             {excludeExtraneousValues: true}
         );
     }
