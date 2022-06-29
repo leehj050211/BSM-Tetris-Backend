@@ -4,7 +4,7 @@ import { UserEntity } from 'src/user/entities/user.entity';
 @Entity('token')
 export class TokenEntity {
     @PrimaryColumn({
-        length: 128
+        length: 64
     })
     token: string;
 
@@ -15,7 +15,7 @@ export class TokenEntity {
 
     @ManyToOne(type => UserEntity)
     @JoinColumn({name: 'usercode'})
-    userFK: UserEntity;
+    userFK: number;
 
     @RelationId((token: TokenEntity) => token.userFK)
     usercode: number;

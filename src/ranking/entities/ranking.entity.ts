@@ -1,7 +1,8 @@
-import { Entity, Column, PrimaryColumn, PrimaryGeneratedColumn, ManyToOne, JoinColumn, RelationId } from 'typeorm';
+import { Entity, Column, PrimaryColumn, PrimaryGeneratedColumn, ManyToOne, JoinColumn, RelationId, Unique } from 'typeorm';
 import { UserEntity } from 'src/user/entities/user.entity';
 
 @Entity('ranking')
+@Unique(['userFK'])
 export class RankingEntity {
     @PrimaryGeneratedColumn('increment')
     @PrimaryColumn({unsigned: true})

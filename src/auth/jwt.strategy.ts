@@ -51,7 +51,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
             algorithm: 'HS256',
             expiresIn: '1h'
         });
-        req.res.cookie('token', token, {
+        req.res.cookie('tetris_token', token, {
             path: '/',
             httpOnly: true,
             maxAge: 1000*60*60

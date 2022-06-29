@@ -139,8 +139,8 @@ export class UserService {
 
     private async createToken(usercode: number): Promise<TokenEntity> {
         const refreshToken = new TokenEntity();
-        refreshToken.token = randomBytes(64).toString('hex');
-        refreshToken.usercode = usercode;
+        refreshToken.token = randomBytes(32).toString('hex');
+        refreshToken.userFK = usercode;
         refreshToken.valid = true;
         refreshToken.created = new Date;
         await this.tokenRepository.save(refreshToken);
