@@ -24,17 +24,17 @@ export class RankingService {
             ?,
             ?
         ) ON DUPLICATE KEY UPDATE 
-            tick = ?,
-            level = ?,
-            date = ?
+            level = IF((tick < ?), ?, level),
+            date = IF((tick < ?), ?, date),
+            tick = IF((tick < ?), ?, tick)
         `, [
             tick,
             level,
             new Date,
             user.usercode,
-            tick,
-            level,
-            new Date
+            tick, tick,
+            tick, level,
+            tick, new Date
         ]);
     }
 

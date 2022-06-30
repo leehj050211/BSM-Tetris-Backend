@@ -41,10 +41,8 @@ export class GameRoomService {
         client.emit('room:join', {username: player.username});
         // 유저가 방에 전부 들어왔으면 게임 준비
         if (Object.keys(room.players).length == this.MAX_PLAYERS) {
-            setTimeout(() => {
-                server.to(room.id).emit('game:ready', 'ready');
-                this.gamePlayService.initGame(server, room);
-            }, 100);
+            server.to(room.id).emit('game:ready', 'ready');
+            this.gamePlayService.initGame(server, room);
         }
         return player;
     }

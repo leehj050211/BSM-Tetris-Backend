@@ -52,14 +52,26 @@ export class GamePlayService {
         setTimeout(() => {
             room.playing = true;
             this.server.to(room.id).emit('game:start', 'start');
+            clearInterval(room.interval);
             room.interval = setInterval(() => this.play(room), room.tickDelay);
         }, 5000);
     }
 
     play(room: Room) {
+        // 모든 플레이어들이 게임 오버 되었다면
         if (room.leftPlayers <= 0) {
             room.playing = false;
             clearInterval(room.interval);
+            // 방에 플레이어들이 있다면 게임 재시작
+            if (Object.keys(room.players)) {
+                this.server.to(room.id).emit('game:restart', {
+                    time: 10
+                });
+                setTimeout(() => {
+                    this.initGame(this.server, room);
+                }, 5000);
+            }
+            return;
         }
         if (!room.playing) return;
 
