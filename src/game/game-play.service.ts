@@ -7,6 +7,7 @@ import { Piece } from 'src/game/types/piece';
 import { GameData } from 'src/game/types/game-data';
 import LEVEL from 'src/game/types/level';
 import { RankingService } from 'src/ranking/ranking.service';
+import { setTimeout } from 'timers/promises';
 
 @Injectable()
 export class GamePlayService {
@@ -19,7 +20,7 @@ export class GamePlayService {
         [index: string]: Room
     } = {};
 
-    initGame(server: Server, room: Room) {
+    async initGame(server: Server, room: Room) {
         this.server = server;
         this.rooms[room.id] = room;
         // 방 설정 초기화
@@ -29,7 +30,26 @@ export class GamePlayService {
         room.tickRate = Math.floor((1000 / room.tickDelay) * 100) / 100;
         room.level = LEVEL[room.tick].level;
 
-        Object.values(room.players).forEach(player => {
+        await setTimeout(3000);
+        this.server.to(room.id).emit('game:info', {
+            roomId: room.id,
+            players: Object.keys(room.players).map(username => username),
+            level: room.level,
+            tickRate: room.tickRate,
+            tick: room.tick
+        });
+
+        await setTimeout(5000);
+        room.playing = true;
+        this.initPlayers(room, Object.values(room.players));
+        clearInterval(room.interval);
+        room.interval = setInterval(() => this.play(room), room.tickDelay);
+        
+        this.server.to(room.id).emit('game:start', 'start');
+    }
+
+    private initPlayers(room: Room, players: Player[]) {
+        players.forEach(player => {
             // 테트리스 보드 배열 초기화
             const newgameData = new GameData();
             newgameData.board = Array.from(
@@ -37,27 +57,13 @@ export class GamePlayService {
                     {length: this.BOARD_ROWS}, () => 0
                 )
             );
+            player.playing = true;
             room.players[player.username].gameData = newgameData;
         });
-
-        setTimeout(() => {
-            this.server.to(room.id).emit('game:info', {
-                roomId: room.id,
-                players: Object.keys(room.players).map(username => username),
-                level: room.level,
-                tickRate: room.tickRate,
-                tick: room.tick
-            });
-        }, 3000);
-        setTimeout(() => {
-            room.playing = true;
-            this.server.to(room.id).emit('game:start', 'start');
-            clearInterval(room.interval);
-            room.interval = setInterval(() => this.play(room), room.tickDelay);
-        }, 5000);
     }
 
-    play(room: Room) {
+    private async play(room: Room) {
+        if (!room.playing) return;
         // 모든 플레이어들이 게임 오버 되었다면
         if (room.leftPlayers <= 0) {
             room.playing = false;
@@ -67,13 +73,11 @@ export class GamePlayService {
                 this.server.to(room.id).emit('game:restart', {
                     time: 10
                 });
-                setTimeout(() => {
-                    this.initGame(this.server, room);
-                }, 5000);
+                await setTimeout(5000);
+                this.initGame(this.server, room);
             }
             return;
         }
-        if (!room.playing) return;
 
         // 난이도 설정
         if (LEVEL[room.tick]) {
@@ -91,7 +95,7 @@ export class GamePlayService {
         }
 
         Object.values(room.players)
-            .filter(player => player.gameData.ranking == 0)
+            .filter(player => player.playing)
             .forEach(player => {
             const gameData: GameData = player.gameData;
 
@@ -121,6 +125,7 @@ export class GamePlayService {
             } else {
                 // 만약 게임 오버되었다면
                 if (gameData.piece.y < 0) {
+                    player.playing = false;
                     gameData.ranking = room.leftPlayers--;
                     // 만약 로그인된 유저라면 랭킹 업데이트
                     if (player.user) {
@@ -151,11 +156,10 @@ export class GamePlayService {
     gameControl(player: Player, action: string, data: any) {
         const roomId = player.roomId;
         const room = this.rooms[player.roomId];
-        if (!room.playing) return;
-        const gameData = room.players[player.username].gameData;
-        // 게임 오버된 플레이어라면
-        if (gameData.ranking != 0) return;
+        // 게임이 플레이 중인지 확인
+        if (!room.playing || !player.playing) return;
 
+        const gameData = room.players[player.username].gameData;
         const { board, piece } = gameData;
         switch (action) {
             case 'harddrop': {
@@ -402,6 +406,27 @@ export class GamePlayService {
                 });
             }
         });
+    }
+
+    async joinPlayer(room: Room, client: Socket) {
+        await setTimeout(1000);
+        client.emit('game:info', {
+            roomId: room.id,
+            players: Object.keys(room.players).map(username => username),
+            level: room.level,
+            tickRate: room.tickRate,
+            tick: room.tick
+        });
+    }
+
+    deletePlayer(room: Room, player: Player) {
+        player.playing = false;
+        --room.leftPlayers;
+        delete room.players[player.username];
+        if (!Object.keys(room.players).length) {
+            clearInterval(room.interval);
+            delete this.rooms[room.id];
+        }
     }
 
     // 깊은 복사

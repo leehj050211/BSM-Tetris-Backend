@@ -4,7 +4,6 @@ import { Repository } from 'typeorm';
 import { plainToClass } from '@nestjs/class-transformer';
 import { Socket } from 'socket.io';
 import { User } from 'src/user/user';
-import { WsException } from '@nestjs/websockets';
 import { JwtService } from '@nestjs/jwt';
 import { UserEntity } from 'src/user/entities/user.entity';
 import { TokenEntity } from 'src/user/entities/token.entity';

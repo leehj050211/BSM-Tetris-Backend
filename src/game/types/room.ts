@@ -2,6 +2,7 @@ import { Player } from "src/game/types/player";
 
 export class Room {
     id: string;
+    init: boolean = false;
     playing: boolean = false;
     leftPlayers: number = 0;
     players: {

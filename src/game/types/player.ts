@@ -17,4 +17,7 @@ export class Player {
 
     @Exclude()
     gameData: GameData | null = null;
+
+    @Exclude()
+    playing: boolean = false;
 }
