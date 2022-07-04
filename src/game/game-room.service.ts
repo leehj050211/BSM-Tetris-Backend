@@ -8,9 +8,11 @@ import { setTimeout } from 'timers/promises';
 
 @Injectable()
 export class GameRoomService {
-    constructor(private gamePlayService: GamePlayService) {}
+    constructor(private gamePlayService: GamePlayService) {
+        this.gamePlayService.init(this.rooms);
+    }
     
-    private readonly MAX_PLAYERS = 3;
+    private readonly MAX_PLAYERS = 5;
     private rooms: {
         [index: string]: Room
     } = {};

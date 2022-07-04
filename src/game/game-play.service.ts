@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { plainToClass } from '@nestjs/class-transformer';
 import { Server, Socket } from 'socket.io';
 import { Room } from 'src/game/types/room';
+import { GameRoomService } from 'src/game/game-room.service';
 import { Player } from 'src/game/types/player';
 import { Piece } from 'src/game/types/piece';
 import { GameData } from 'src/game/types/game-data';
@@ -11,7 +12,9 @@ import { setTimeout } from 'timers/promises';
 
 @Injectable()
 export class GamePlayService {
-    constructor(private rankingService: RankingService) {}
+    constructor(
+        private rankingService: RankingService
+    ) {}
 
     private server: Server;
     private BOARD_ROWS = 10;
@@ -20,9 +23,14 @@ export class GamePlayService {
         [index: string]: Room
     } = {};
 
+    init(rooms: {
+        [index: string]: Room
+    }) {
+        this.rooms = rooms;
+    }
+
     async initGame(server: Server, room: Room) {
         this.server = server;
-        this.rooms[room.id] = room;
         // 방 설정 초기화
         room.leftPlayers = Object.keys(room.players).length;
         room.tick = 0;
@@ -420,8 +428,11 @@ export class GamePlayService {
     }
 
     deletePlayer(room: Room, player: Player) {
-        player.playing = false;
-        --room.leftPlayers;
+        if (player.playing) {
+            player.playing = false;
+            --room.leftPlayers;
+        }
+        
         delete room.players[player.username];
         if (!Object.keys(room.players).length) {
             clearInterval(room.interval);

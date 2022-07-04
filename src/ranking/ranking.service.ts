@@ -32,9 +32,9 @@ export class RankingService {
             level,
             new Date,
             user.usercode,
-            tick, tick,
             tick, level,
-            tick, new Date
+            tick, new Date,
+            tick, tick
         ]);
     }
 
