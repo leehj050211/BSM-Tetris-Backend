@@ -12,7 +12,7 @@ export class GameRoomService {
         this.gamePlayService.init(this.rooms);
     }
     
-    private readonly MAX_PLAYERS = 5;
+    private readonly MAX_PLAYERS = 8;
     private rooms: {
         [index: string]: Room
     } = {};

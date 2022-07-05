@@ -3,15 +3,15 @@ export default {
         level: 1,
         delay: 500
     },
-    75: {
+    50: {
         level: 2,
-        delay: 350
+        delay: 300
     },
-    200: {
+    150: {
         level: 3,
-        delay: 250
+        delay: 200
     },
-    450: {
+    400: {
         level: 4,
         delay: 125
     },
