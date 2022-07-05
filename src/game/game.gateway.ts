@@ -101,6 +101,19 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.gameRoomService.getRoomInfo(client, player);
     }
 
+    @SubscribeMessage('room:skip')
+    async roomSkipWait(@ConnectedSocket() client: Socket) {
+        if (this.clients[client.id].username === undefined) {
+            return client.emit('error', `You didn't joined the game`);
+        }
+        const username = this.clients[client.id].username;
+        const player: Player = this.players[username];
+        if (!player.roomId) {
+            return client.emit('error', `You didn't joined the game`);
+        }
+        this.gameRoomService.roomSkipWait(this.server, player);
+    }
+
     @SubscribeMessage('game')
     async gamePacket(
         @ConnectedSocket() client: Socket,

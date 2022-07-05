@@ -74,6 +74,14 @@ export class GameRoomService {
         });
     }
 
+    async roomSkipWait(server: Server, player: Player) {
+        const room: Room = this.rooms[player.roomId];
+        if (room.init) return;
+        room.init = true;
+        server.to(room.id).emit('room:skip', 'skip');
+        this.gamePlayService.initGame(server, room);
+    }
+
     private createRoom(): Room {
         const newRoom = new Room();
         newRoom.id = getUUID().replaceAll('-', '');

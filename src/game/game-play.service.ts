@@ -38,7 +38,7 @@ export class GamePlayService {
         room.tickRate = Math.floor((1000 / room.tickDelay) * 100) / 100;
         room.level = LEVEL[room.tick].level;
 
-        await setTimeout(3000);
+        await setTimeout(1000);
         this.server.to(room.id).emit('game:info', {
             roomId: room.id,
             players: Object.keys(room.players).map(username => username),
@@ -47,7 +47,7 @@ export class GamePlayService {
             tick: room.tick
         });
 
-        await setTimeout(5000);
+        await setTimeout(3000);
         room.playing = true;
         this.initPlayers(room, Object.values(room.players));
         clearInterval(room.interval);
@@ -81,7 +81,7 @@ export class GamePlayService {
                 this.server.to(room.id).emit('game:restart', {
                     time: 10
                 });
-                await setTimeout(5000);
+                await setTimeout(6000);
                 this.initGame(this.server, room);
             }
             return;
