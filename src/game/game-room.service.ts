@@ -5,6 +5,7 @@ import { Room } from 'src/game/types/room';
 import { Player } from 'src/game/types/player';
 import { GamePlayService } from 'src/game/game-play.service';
 import { setTimeout } from 'timers/promises';
+import { RoomDto } from 'src/game/dto/RoomDto';
 
 @Injectable()
 export class GameRoomService {
@@ -16,6 +17,8 @@ export class GameRoomService {
     private rooms: {
         [index: string]: Room
     } = {};
+    // 방 생성 횟수 누적
+    private totalRoomCount: number = 0;
 
     async findRoom(server: Server, client: Socket, player: Player) {
         let isFind: boolean = false;
@@ -74,7 +77,7 @@ export class GameRoomService {
         });
     }
 
-    async roomSkipWait(server: Server, player: Player) {
+    roomSkipWait(server: Server, player: Player) {
         const room: Room = this.rooms[player.roomId];
         if (room.init) return;
         room.init = true;
@@ -82,8 +85,22 @@ export class GameRoomService {
         this.gamePlayService.initGame(server, room);
     }
 
-    private createRoom(): Room {
+    getRoomList(): RoomDto[] {
+        return Object.values(this.rooms).map(room => {
+            const roomDto = new RoomDto;
+            roomDto.id = room.id;
+            roomDto.name = room.name;
+            roomDto.isPlaying = room.playing;
+            roomDto.maxPlayers = this.MAX_PLAYERS;
+            roomDto.totalPlayers = Object.keys(room.players).length;
+
+            return roomDto;
+        });
+    }
+
+    private createRoom(name: string = `방 ${String(++this.totalRoomCount).padStart(4, '0')}`): Room {
         const newRoom = new Room();
+        newRoom.name = name;
         newRoom.id = getUUID().replaceAll('-', '');
         newRoom.players = {};
         return newRoom;

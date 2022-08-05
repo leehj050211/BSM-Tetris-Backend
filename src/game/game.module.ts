@@ -4,6 +4,7 @@ import { AuthModule } from 'src/auth/auth.module';
 import { WSAuthUtil } from 'src/auth/WS-auth.util';
 import { GamePlayService } from 'src/game/game-play.service';
 import { GameRoomService } from 'src/game/game-room.service';
+import { GameController } from 'src/game/game.controller';
 import { RankingEntity } from 'src/ranking/entities/ranking.entity';
 import { RankingModule } from 'src/ranking/ranking.module';
 import { RankingService } from 'src/ranking/ranking.service';
@@ -17,6 +18,7 @@ import { GameGateway } from './game.gateway';
         AuthModule,
         RankingModule
     ],
+    controllers: [GameController],
     providers: [
         GameGateway,
         GameRoomService,
