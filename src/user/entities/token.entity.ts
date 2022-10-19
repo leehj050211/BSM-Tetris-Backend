@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryColumn, ManyToOne, JoinColumn, RelationId } from 'typeorm';
+import { Entity, Column, PrimaryColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { UserEntity } from 'src/user/entities/user.entity';
 
 @Entity('token')
@@ -13,13 +13,17 @@ export class TokenEntity {
     })
     valid: boolean;
 
-    @ManyToOne(type => UserEntity)
-    @JoinColumn({name: 'usercode'})
-    userFK: number;
+    @ManyToOne(type => UserEntity, user => user.userCode)
+    @JoinColumn({name: 'user_code'})
+    user: UserEntity;
 
-    @RelationId((token: TokenEntity) => token.userFK)
-    usercode: number;
+    @Column({
+        nullable: false,
+        unsigned: true,
+        name: 'user_code'
+    })
+    userCode: number;
 
     @Column({nullable: false})
-    created: Date;
+    createdAt: Date;
 }

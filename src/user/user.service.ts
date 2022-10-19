@@ -14,71 +14,59 @@ import { User } from 'src/user/user';
 import { CreateUserOAuthDTO } from 'src/user/dto/create-user-oauth.dto';
 import { BSMOAuthCodeDTO } from 'src/user/dto/bsm-code-dto';
 import { BSMOAuthResourceDTO } from 'src/user/dto/bsm-resource.dto';
+import BsmOauth, { BsmOauthError, BsmOauthErrorType, BsmOauthUserRole, StudentResource, TeacherResource } from 'bsm-oauth';
+import { UserSignUpRequest } from 'src/user/dto/request/userSignUpRequest';
 
-const { CLIENT_ID, CLIENT_SECRET, SECRET_KEY } = process.env;
+const { BSM_OAUTH_CLIENT_ID, BSM_OAUTH_CLIENT_SECRET, SECRET_KEY } = process.env;
 
 @Injectable()
 export class UserService {
-  constructor(
-    private httpService: HttpService,
-    private jwtService: JwtService,
-    @InjectRepository(UserEntity) private userRepository: Repository<UserEntity>,
-    @InjectRepository(TokenEntity) private tokenRepository: Repository<TokenEntity>
-  ) {}
-  
-  private readonly getOAuthTokenURL = process.env.OAUTH_TOKEN_URL;
-  private readonly getOAuthResourceURL = process.env.OAUTH_RESOURCE_URL;
-
-    async BSMOAuth(
-        res: Response,
-        dto: CreateUserOAuthDTO
+    constructor(
+        private httpService: HttpService,
+        private jwtService: JwtService,
+        @InjectRepository(UserEntity) private userRepository: Repository<UserEntity>,
+        @InjectRepository(TokenEntity) private tokenRepository: Repository<TokenEntity>
     ) {
-        const { code } = dto;
+        this.bsmOauth = new BsmOauth(BSM_OAUTH_CLIENT_ID, BSM_OAUTH_CLIENT_SECRET);
+    }
+  
+    private bsmOauth: BsmOauth;
 
-        const getTokenPayload = {
-            authcode: code,
-            clientId: CLIENT_ID,
-            clientSecret: CLIENT_SECRET
-        };
+    async oauth(
+        res: Response,
+        authCode: string
+    ) {
 
-        let tokenData: BSMOAuthCodeDTO;
+        let resource: StudentResource | TeacherResource;
         try {
-            tokenData = plainToClass(BSMOAuthCodeDTO, (await lastValueFrom(this.httpService.post(this.getOAuthTokenURL, (getTokenPayload)))).data);
-        } catch (err) {
-            if (err.response.status == 404) {
-                throw new NotFoundException('Authcode not found');
+            resource = await this.bsmOauth.getResource(
+                await this.bsmOauth.getToken(authCode)
+            );
+        } catch (error) {
+            if (error instanceof BsmOauthError) {
+                switch (error.type) {
+                    case BsmOauthErrorType.INVALID_CLIENT: {
+                        throw new InternalServerErrorException('OAuth Failed');
+                    }
+                    case BsmOauthErrorType.AUTH_CODE_NOT_FOUND: {
+                        throw new NotFoundException('Authcode not found');
+                    }
+                    case BsmOauthErrorType.TOKEN_NOT_FOUND: {
+                        throw new NotFoundException('Token not found');
+                    }
+                }
             }
-            console.error(err);
             throw new InternalServerErrorException('OAuth Failed');
         }
-        if (!tokenData.token) {
-            throw new NotFoundException('Authcode not found');
-        }
         
-        const getResourcePayload = {
-            token: tokenData.token,
-            clientId: CLIENT_ID,
-            clientSecret: CLIENT_SECRET
-        };
-        let resourceData: BSMOAuthResourceDTO;
-        try {
-            resourceData = plainToClass(BSMOAuthResourceDTO, (await lastValueFrom(this.httpService.post(this.getOAuthResourceURL, (getResourcePayload)))).data.user);
-        } catch (err) {
-            if (err.response.status == 404) {
-                throw new NotFoundException('User not found');
-            }
-            console.error(err);
-            throw new InternalServerErrorException('OAuth Failed');
-        }
-        if (!resourceData.code) {
-            throw new NotFoundException('User not found');
-        }
-        
-        let userInfo = await this.getByUsercode(resourceData.code);
-
+        let userInfo = await this.getUserBycode(resource.userCode);
         if (!userInfo) {
-            await this.saveUser(resourceData);
-            userInfo = await this.getByUsercode(resourceData.code);
+            await this.saveUser({
+                code: resource.userCode,
+                nickname: resource.nickname,
+                name: resource.role === BsmOauthUserRole.STUDENT? resource.student.name: resource.teacher.name
+            });
+            userInfo = await this.getUserBycode(resource.userCode);
             if (!userInfo) {
                 throw new NotFoundException('User not Found');
             }
@@ -97,7 +85,7 @@ export class UserService {
             expiresIn: '1h'
         });
         const refreshToken = this.jwtService.sign({
-            refreshToken: (await this.createToken(user.usercode)).token
+            refreshToken: (await this.createToken(user.userCode)).token
         }, {
             secret: SECRET_KEY,
             algorithm: 'HS256',
@@ -120,29 +108,28 @@ export class UserService {
         }
     }
 
-    private async saveUser(
-        dto: BSMOAuthResourceDTO
-    ) {
+    private async saveUser(request: UserSignUpRequest) {
         const user = new UserEntity();
-        user.usercode = dto.code;
-        user.nickname = dto.nickname;
+        user.userCode = request.code;
+        user.nickname = request.nickname;
         await this.userRepository.save(user);
     }
 
-    private async getByUsercode(usercode: number): Promise<UserEntity | undefined> {
+    private async getUserBycode(userCode: number): Promise<UserEntity | undefined> {
         return this.userRepository.findOne({
             where: {
-                usercode
+                userCode
             }
         })
     }
 
-    private async createToken(usercode: number): Promise<TokenEntity> {
+    private async createToken(userCode: number): Promise<TokenEntity> {
         const refreshToken = new TokenEntity();
         refreshToken.token = randomBytes(32).toString('hex');
-        refreshToken.userFK = usercode;
+        refreshToken.userCode = userCode;
         refreshToken.valid = true;
-        refreshToken.created = new Date;
+        refreshToken.createdAt = new Date;
+
         await this.tokenRepository.save(refreshToken);
         return refreshToken;
     }

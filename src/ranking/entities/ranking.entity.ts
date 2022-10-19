@@ -2,18 +2,22 @@ import { Entity, Column, PrimaryColumn, PrimaryGeneratedColumn, ManyToOne, JoinC
 import { UserEntity } from 'src/user/entities/user.entity';
 
 @Entity('ranking')
-@Unique(['userFK'])
+@Unique(['userCode'])
 export class RankingEntity {
     @PrimaryGeneratedColumn('increment')
     @PrimaryColumn({unsigned: true})
     id: number;
     
-    @ManyToOne(type => UserEntity, {nullable: false})
-    @JoinColumn({name: 'usercode'})
-    userFK: number;
-    
-    @RelationId((ranking: RankingEntity) => ranking.userFK)
-    usercode: number;
+    @ManyToOne(type => UserEntity, user => user.userCode)
+    @JoinColumn({name: 'user_code'})
+    user: UserEntity;
+
+    @Column({
+        nullable: false,
+        unsigned: true,
+        name: 'user_code'
+    })
+    userCode: number;
     
     @Column({nullable: false})
     tick: number;

@@ -17,7 +17,7 @@ export class RankingService {
             tick,
             level,
             date,
-            usercode
+            user_code
         ) values (
             ?,
             ?,
@@ -31,7 +31,7 @@ export class RankingService {
             tick,
             level,
             new Date,
-            user.usercode,
+            user.userCode,
             tick, level,
             tick, new Date,
             tick, tick
@@ -41,13 +41,13 @@ export class RankingService {
     async viewRanking(): Promise<ViewRankingType[]> {
         const rankingInfo = await this.rankingRepository.createQueryBuilder('r')
             .select([
-                'r.usercode usercode',
+                'r.user_code usercode',
                 'u.nickname nickname',
                 'r.tick tick',
                 'r.level level',
                 'r.date date'
             ])
-            .leftJoin('r.userFK', 'u')
+            .leftJoin('r.user', 'u')
             .orderBy('tick', 'DESC')
             .getRawMany();
         
@@ -63,7 +63,7 @@ export class RankingService {
     async viewMyRanking(user: User): Promise<ViewRankingType> {
         const rankingInfo = await this.rankingRepository.query(`
         SELECT 
-            r.usercode usercode,
+            r.user_code usercode,
             u.nickname nickname,
             r.rank rank,
             r.tick tick,
@@ -72,16 +72,16 @@ export class RankingService {
         FROM 
             user u,
             (SELECT 
-                usercode usercode,
-                tick tick,
-                level level,
-                date date,
+                user_code,
+                tick,
+                level,
+                date,
                 RANK() OVER (ORDER BY tick DESC) rank
             FROM ranking) r
         WHERE 
-            r.usercode = ? AND
-            r.usercode = u.usercode;
-        `, [user.usercode]);
+            r.user_code = ? AND
+            r.user_code = u.user_code;
+        `, [user.userCode]);
         
         return plainToClass(
             ViewRankingType,

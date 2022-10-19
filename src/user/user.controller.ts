@@ -12,11 +12,11 @@ export class UserController {
     constructor(private readonly userService: UserService) {}
 
     @Get('oauth/bsm')
-    BSMOAuth(
+    oauth(
         @Res({passthrough: true}) res: Response,
-        @Query() dto: CreateUserOAuthDTO
+        @Query('code') authCode: string
     ) {
-        return this.userService.BSMOAuth(res, dto);
+        return this.userService.oauth(res, authCode);
     }
 
     @Get('/')

@@ -30,7 +30,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     async validate(req: Request, user: User): Promise<User> {
-        if (user.usercode) {
+        if (user.userCode) {
             return user;
         }
         const { refreshToken } = this.jwtService.verify(req?.cookies?.tetris_refreshToken);
@@ -41,7 +41,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         if (tokenInfo === null) {
             throw new UnauthorizedException();
         }
-        const userInfo = await this.getUser(tokenInfo.usercode);
+        const userInfo = await this.getUser(tokenInfo.userCode);
         if (userInfo === null) {
             throw new UnauthorizedException();
         }
@@ -59,10 +59,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         return userInfo;
     }
 
-    private async getUser(usercode: number): Promise<UserEntity | null> {
+    private async getUser(userCode: number): Promise<UserEntity | null> {
         return this.userRepository.findOne({
           where: {
-            usercode
+            userCode
           }
         })
       }

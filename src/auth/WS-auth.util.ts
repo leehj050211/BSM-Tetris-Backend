@@ -56,7 +56,7 @@ export class WSAuthUtil {
         const tokenInfo = await this.tokenRepository.findOne({where: {token: refreshToken}});
         if (tokenInfo === null) return null;
 
-        const userInfo = await this.userRepository.findOne({where: {usercode: tokenInfo.usercode}});
+        const userInfo = await this.userRepository.findOne({where: {userCode: tokenInfo.userCode}});
         if (userInfo === null) return null;
 
         // 인증이 성공되었으면

@@ -4,7 +4,7 @@ import { IsNumber, IsString } from "class-validator"
 export class User {
     @Expose()
     @IsNumber()
-    usercode: number;
+    userCode: number;
 
     @Expose()
     @IsString()
