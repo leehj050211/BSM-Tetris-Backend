@@ -13,4 +13,15 @@ export class UserEntity {
         length: 20
     })
     nickname: string;
+
+    static create(userCode: number, nickname: string): UserEntity {
+      const user = new UserEntity();
+      user.userCode = userCode;
+      user.nickname = nickname;
+      return user;
+    }
+
+    update(nickname: string): void {
+      this.nickname = nickname;
+    }
 }
