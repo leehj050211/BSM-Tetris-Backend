@@ -2,19 +2,13 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { Response } from 'express';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { HttpService } from '@nestjs/axios';
-import { lastValueFrom } from 'rxjs';
-import { plainToClass } from '@nestjs/class-transformer';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes } from 'crypto';
 
 import { UserEntity } from './entities/user.entity';
 import { TokenEntity } from 'src/user/entities/token.entity';
 import { User } from 'src/user/user';
-import { CreateUserOAuthDTO } from 'src/user/dto/create-user-oauth.dto';
-import { BSMOAuthCodeDTO } from 'src/user/dto/bsm-code-dto';
-import { BSMOAuthResourceDTO } from 'src/user/dto/bsm-resource.dto';
-import BsmOauth, { BsmOauthError, BsmOauthErrorType, BsmOauthUserRole, StudentResource, TeacherResource } from 'bsm-oauth';
+import BsmOauth, { BsmOauthError, BsmOauthErrorType, StudentResource, TeacherResource } from 'bsm-oauth';
 import { UserSignUpRequest } from 'src/user/dto/request/userSignUpRequest';
 
 const { BSM_OAUTH_CLIENT_ID, BSM_OAUTH_CLIENT_SECRET, SECRET_KEY } = process.env;
@@ -22,7 +16,6 @@ const { BSM_OAUTH_CLIENT_ID, BSM_OAUTH_CLIENT_SECRET, SECRET_KEY } = process.env
 @Injectable()
 export class UserService {
     constructor(
-        private httpService: HttpService,
         private jwtService: JwtService,
         @InjectRepository(UserEntity) private userRepository: Repository<UserEntity>,
         @InjectRepository(TokenEntity) private tokenRepository: Repository<TokenEntity>
@@ -63,8 +56,7 @@ export class UserService {
         if (!userInfo) {
             await this.saveUser({
                 code: resource.userCode,
-                nickname: resource.nickname,
-                name: resource.role === BsmOauthUserRole.STUDENT? resource.student.name: resource.teacher.name
+                nickname: resource.nickname
             });
             userInfo = await this.getUserBycode(resource.userCode);
             if (!userInfo) {

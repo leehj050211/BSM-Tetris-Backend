@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { HttpModule } from '@nestjs/axios';
 import { UserService } from './user.service';
 import { UserController } from './user.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -14,7 +13,6 @@ import { TokenEntity } from 'src/user/entities/token.entity';
         UserEntity,
         TokenEntity
     ]),
-    HttpModule,
     ClassTransformer,
     JwtModule
   ],

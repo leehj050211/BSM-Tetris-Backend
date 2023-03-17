@@ -13,7 +13,7 @@ export class RankingService {
 
     async uploadData(user: User, tick: number, level: number) {
         await this.rankingRepository.query(`
-        INSERT INTO tetris.ranking (
+        INSERT INTO ranking (
             tick,
             level,
             date,
